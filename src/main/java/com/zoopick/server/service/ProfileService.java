@@ -21,11 +21,9 @@ public class ProfileService {
     private final ChatRoomRepository chatRoomRepository;
     private final NotificationRepository notificationRepository;
 
-    // 내 프로필 요약 정보 조회
     public ProfileSummaryResponse getProfileSummary(String email) {
-        User user = userRepository.findBySchoolEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
-
+        // 공통 메서드 사용으로 DataNotFoundException 발생
+        User user = userRepository.findBySchoolEmailOrThrow(email);
         Long userId = user.getId();
 
         long postCount = itemPostRepository.countByUserId(userId);
@@ -41,19 +39,16 @@ public class ProfileService {
         );
     }
 
-    // 프로필 정보 수정
     @Transactional
     public void updateProfile(String email, ProfileUpdateRequest request) {
-        User user = userRepository.findBySchoolEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 회원입니다."));
+        User user = userRepository.findBySchoolEmailOrThrow(email);
 
-        // 닉네임 중복 체크 (본인의 현재 닉네임과 다른데 이미 존재할 경우)
+        // 닉네임 중복 체크
         if (!user.getNickname().equals(request.nickname()) &&
                 userRepository.existsByNickname(request.nickname())) {
             throw new IllegalStateException("이미 존재하는 닉네임입니다.");
         }
 
-        // 엔티티 내 업데이트 메서드 호출
         user.updateProfile(request.nickname(), request.department());
     }
 }
