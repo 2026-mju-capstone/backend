@@ -2,9 +2,7 @@ package com.zoopick.server.controller;
 
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.zoopick.server.dto.CommonResponse;
-import com.zoopick.server.dto.notification.FcmTokenRegistrationRequest;
-import com.zoopick.server.dto.notification.NotificationRecord;
-import com.zoopick.server.dto.notification.SendNotificationRequest;
+import com.zoopick.server.dto.notification.*;
 import com.zoopick.server.service.NotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -94,5 +92,57 @@ public class NotificationController {
         String email = authentication.getName();
         List<NotificationRecord> notificationRecords = notificationService.getUnreadNotifications(email);
         return ResponseEntity.ok(CommonResponse.success(notificationRecords));
+    }
+
+    @Operation(summary = "알림 읽음 처리", description = "해당 사용자의 여러 알림을 읽음 상태로 변경합니다. 상태 변경에 성공한 알림 번호를 반환합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "읽음 처리 성공"),
+            @ApiResponse(responseCode = "401", description = "모든 알림이 사용자의 알림이 아님"),
+            @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없거나 알림을 찾을 수 없음")
+    })
+    @PatchMapping("/api/notifications/mark-as-read")
+    public ResponseEntity<CommonResponse<ChangeReadStatusResult>> markAsRead(Authentication authentication, @RequestBody @Valid ChangeReadStatusRequest request) {
+        String email = authentication.getName();
+        ChangeReadStatusResult result = notificationService.markAsRead(email, request.getNotificationIds());
+        return ResponseEntity.ok(CommonResponse.success(result));
+    }
+
+    @Operation(summary = "알림 단건 읽음 처리", description = "해당 사용자의 특정 알림 하나를 읽음 상태로 변경합니다. 상태 변경에 성공한 알림 번호를 반환합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "읽음 처리 성공"),
+            @ApiResponse(responseCode = "401", description = "알림이 사용자의 알림이 아님"),
+            @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없거나 알림을 찾을 수 없음")
+    })
+    @PatchMapping("/api/notifications/{notificationId}/mark-as-read")
+    public ResponseEntity<CommonResponse<ChangeReadStatusResult>> markAsRead(Authentication authentication, @PathVariable long notificationId) {
+        String email = authentication.getName();
+        ChangeReadStatusResult result = notificationService.markAsRead(email, List.of(notificationId));
+        return ResponseEntity.ok(CommonResponse.success(result));
+    }
+
+    @Operation(summary = "알림 읽지 않음 처리", description = "해당 사용자의 여러 알림을 읽지 않음 상태로 변경합니다. 상태 변경에 성공한 알림 번호를 반환합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "읽지 않음 처리 성공"),
+            @ApiResponse(responseCode = "401", description = "모든 알림이 사용자의 알림이 아님"),
+            @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없거나 알림을 찾을 수 없음")
+    })
+    @PatchMapping("/api/notifications/mark-as-unread")
+    public ResponseEntity<CommonResponse<ChangeReadStatusResult>> markAsUnread(Authentication authentication, @RequestBody @Valid ChangeReadStatusRequest request) {
+        String email = authentication.getName();
+        ChangeReadStatusResult result = notificationService.markAsUnread(email, request.getNotificationIds());
+        return ResponseEntity.ok(CommonResponse.success(result));
+    }
+
+    @Operation(summary = "알림 단건 읽지 않음 처리", description = "해당 사용자의 특정 알림 하나를 읽지 않음 상태로 변경합니다. 상태 변경에 성공한 알림 번호를 반환합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "읽지 않음 처리 성공"),
+            @ApiResponse(responseCode = "401", description = "알림이 사용자의 알림이 아님"),
+            @ApiResponse(responseCode = "404", description = "사용자를 찾을 수 없거나 알림을 찾을 수 없음")
+    })
+    @PatchMapping("/api/notifications/{notificationId}/mark-as-unread")
+    public ResponseEntity<CommonResponse<ChangeReadStatusResult>> markAsUnread(Authentication authentication, @PathVariable long notificationId) {
+        String email = authentication.getName();
+        ChangeReadStatusResult result = notificationService.markAsUnread(email, List.of(notificationId));
+        return ResponseEntity.ok(CommonResponse.success(result));
     }
 }

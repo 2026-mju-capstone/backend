@@ -4,11 +4,13 @@ import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
+import com.zoopick.server.dto.notification.ChangeReadStatusResult;
 import com.zoopick.server.dto.notification.NotificationRecord;
 import com.zoopick.server.dto.notification.SendNotificationRequest;
 import com.zoopick.server.entity.User;
 import com.zoopick.server.entity.ZoopickNotification;
 import com.zoopick.server.exception.AccessTokenException;
+import com.zoopick.server.exception.BadRequestException;
 import com.zoopick.server.exception.DataNotFoundException;
 import com.zoopick.server.mapper.NotificationMapper;
 import com.zoopick.server.repository.NotificationRepository;
@@ -17,8 +19,11 @@ import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 @Service
@@ -105,5 +110,32 @@ public class NotificationService {
         return notifications.stream()
                 .map(notificationMapper::toNotificationResponse)
                 .toList();
+    }
+
+    public ChangeReadStatusResult markAsRead(String email, List<Long> notificationIds) {
+        return changeReadStatusRequest(email, notificationIds, notification -> notification.setReadAt(LocalDateTime.now()));
+    }
+
+    public ChangeReadStatusResult markAsUnread(String email, List<Long> notificationIds) {
+        return changeReadStatusRequest(email, notificationIds, notification -> notification.setReadAt(null));
+    }
+
+    private ChangeReadStatusResult changeReadStatusRequest(String email, List<Long> notificationIds, Consumer<ZoopickNotification> readStatusChangeAction) {
+        List<ZoopickNotification> notifications = notificationRepository.findAllById(notificationIds);
+        if (notifications.isEmpty())
+            throw DataNotFoundException.from("알림", notificationIds);
+
+        List<Long> succeedIds = new ArrayList<>();
+        for (ZoopickNotification notification : notifications) {
+            if (notification.getUser().getSchoolEmail().equals(email)) {
+                readStatusChangeAction.accept(notification);
+                succeedIds.add(notification.getId());
+            }
+        }
+        if (succeedIds.isEmpty())
+            throw new BadRequestException("현재 사용자의 알림이 아닙니다.");
+
+        notificationRepository.saveAll(notifications);
+        return new ChangeReadStatusResult(succeedIds);
     }
 }
