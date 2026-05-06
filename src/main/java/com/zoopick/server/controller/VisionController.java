@@ -1,12 +1,13 @@
 package com.zoopick.server.controller;
 
+import com.zoopick.server.dto.CommonResponse;
 import com.zoopick.server.dto.vision.VisionAnalyzeRequest;
-import com.zoopick.server.dto.vision.VisionAnalyzeResponse;
 import com.zoopick.server.service.VisionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,7 +37,8 @@ public class VisionController {
             @ApiResponse(responseCode = "502", description = "AI 서버 응답 오류"),
     })
     @PostMapping("/analyze")
-    public VisionAnalyzeResponse analyzeImage(@RequestBody VisionAnalyzeRequest request) {
-        return visionService.analyzeImage(request.getImageUrl());
+    public ResponseEntity<CommonResponse<String>> analyzeImage(@RequestBody VisionAnalyzeRequest request) {
+        visionService.analyzeImage(request);
+        return ResponseEntity.ok().body(CommonResponse.success(request.getImageUrl()));
     }
 }
