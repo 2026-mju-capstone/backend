@@ -38,13 +38,13 @@ public class ItemPostService {
                 .reporter(user)
                 .type(request.getType())
                 .status(ItemStatus.REPORTED)
-                .category(null)
-                .color(null)
+                .category(request.getCategory())
+                .color(request.getColor())
                 .embedding(null)
                 .reportedBuilding(building)
                 .locationName(request.getDetailAddress())
                 .imageUrl(request.getImageUrl())
-                .reportedAt(LocalDateTime.now())
+                .reportedAt(request.getReportedAt() != null ? request.getReportedAt() : LocalDateTime.now())
                 .build();
 
         Item savedItem = itemRepository.save(item);

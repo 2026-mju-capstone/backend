@@ -2,6 +2,7 @@ package com.zoopick.server.dto.item;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.zoopick.server.entity.ItemCategory;
+import com.zoopick.server.entity.ItemColor;
 import com.zoopick.server.entity.ItemStatus;
 import com.zoopick.server.entity.ItemType;
 import lombok.AllArgsConstructor;
@@ -22,6 +23,7 @@ public class ItemPostRecord {
     private ItemType type;
     private ItemStatus status;
     private ItemCategory category;
+    private ItemColor color;
     @JsonProperty("image_url")
     private String imageUrl;
     @JsonProperty("building_id")

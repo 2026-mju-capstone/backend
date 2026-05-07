@@ -36,3 +36,7 @@ build/
 /target
 http/http-client.env.json
 http/test/
+
+/uploads/**
+!/uploads/**/
+!/uploads/**/.gitkeep

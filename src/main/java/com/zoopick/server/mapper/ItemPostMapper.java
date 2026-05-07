@@ -18,6 +18,7 @@ public class ItemPostMapper {
                 .type(itemPost.getItem().getType())
                 .status(itemPost.getItem().getStatus())
                 .category(itemPost.getItem().getCategory())
+                .color(itemPost.getItem().getColor())
                 .imageUrl(itemPost.getItem().getImageUrl())
                 .buildingId(itemPost.getItem().getReportedBuilding().getId())
                 .detailAddress(itemPost.getItem().getLocationName())
