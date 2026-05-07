@@ -21,6 +21,7 @@ public class VisionService {
     private final RestClient fastApiRestClient;
     private final FastApiProperties fastApiProperties;
     private final ItemRepository itemRepository;
+    private final ItemMatchService itemMatchService;
 
     //db에 commit한 이벤트를 받으면 실행
     @Async
@@ -51,6 +52,7 @@ public class VisionService {
             item.setColor(response.getColor());
             item.setEmbedding(response.getEmbedding());
             itemRepository.save(item);
+            itemMatchService.createMatch(item.getId());
         } catch (BadRequestException | DataNotFoundException e) {
             throw e;
         } catch (Exception e) {
