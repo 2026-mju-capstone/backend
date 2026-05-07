@@ -581,11 +581,7 @@ CREATE TABLE zoopick.item_matches (
                                       id bigint NOT NULL,
                                       lost_item_id bigint NOT NULL,
                                       found_item_id bigint NOT NULL,
-                                      score_category real,
-                                      score_visual real,
-                                      score_spatial real,
-                                      score_temporal real,
-                                      score_total real NOT NULL,
+                                      score real NOT NULL,
                                       status zoopick.match_status DEFAULT 'CANDIDATE'::zoopick.match_status NOT NULL,
                                       created_at timestamp without time zone DEFAULT now() NOT NULL,
                                       updated_at timestamp without time zone
@@ -1095,7 +1091,7 @@ COPY zoopick.courses (id, course_name, room_id, year, semester, day_of_week, sta
 -- Data for Name: item_matches; Type: TABLE DATA; Schema: zoopick; Owner: postgres
 --
 
-COPY zoopick.item_matches (id, lost_item_id, found_item_id, score_category, score_visual, score_spatial, score_temporal, score_total, status, created_at, updated_at) FROM stdin;
+COPY zoopick.item_matches (id, lost_item_id, found_item_id, score, status, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -1508,6 +1504,13 @@ ALTER TABLE ONLY zoopick.users
 
 ALTER TABLE ONLY zoopick.users
     ADD CONSTRAINT users_school_email_key UNIQUE (school_email);
+
+
+--
+-- Name: idx_items_cat_color_id; Type: INDEX; Schema: zoopick; Owner: postgres
+--
+
+CREATE INDEX idx_items_cat_color_id ON zoopick.items (category, color, id);
 
 
 --
