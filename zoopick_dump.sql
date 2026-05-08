@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict knEphJBtBaU0XtNnamEd80jQUqm15GSDwBEkbzT3sCe6eNhHkym4htiMgY1Pc8T
+\restrict 9yBbw4DY2rd1eWndmvNIajy4k3FkWxAiCtQR1obhhKOopXqe3bbyhRZSoTllJR8
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -581,11 +581,7 @@ CREATE TABLE zoopick.item_matches (
                                       id bigint NOT NULL,
                                       lost_item_id bigint NOT NULL,
                                       found_item_id bigint NOT NULL,
-                                      score_category real,
-                                      score_visual real,
-                                      score_spatial real,
-                                      score_temporal real,
-                                      score_total real NOT NULL,
+                                      score real NOT NULL,
                                       status zoopick.match_status DEFAULT 'CANDIDATE'::zoopick.match_status NOT NULL,
                                       created_at timestamp without time zone DEFAULT now() NOT NULL,
                                       updated_at timestamp without time zone
@@ -1046,9 +1042,9 @@ ALTER TABLE ONLY zoopick.users ALTER COLUMN id SET DEFAULT nextval('zoopick.user
 --
 
 COPY zoopick.buildings (id, name, code, latitude, longitude) FROM stdin;
-1	??怨듯븰愿	ENG5	37.221984	127.187616
+1	??怨듯븰愿	ENG1	37.222482	127.187167
 2	??怨듯븰愿	ENG2	37.221523	127.186795
-3	??怨듯븰愿	ENG1	37.222482	127.187167
+3	??怨듯븰愿	ENG5	37.221984	127.187616
 4	?⑤컯愿	HBK	37.221122	127.18861
 5	李쎌“?덉닠愿	ART	37.222838	127.189279
 \.
@@ -1139,7 +1135,7 @@ COPY zoopick.courses (id, course_name, room_id, year, semester, day_of_week, sta
 -- Data for Name: item_matches; Type: TABLE DATA; Schema: zoopick; Owner: postgres
 --
 
-COPY zoopick.item_matches (id, lost_item_id, found_item_id, score_category, score_visual, score_spatial, score_temporal, score_total, status, created_at, updated_at) FROM stdin;
+COPY zoopick.item_matches (id, lost_item_id, found_item_id, score, status, created_at, updated_at) FROM stdin;
 \.
 
 
@@ -1188,16 +1184,16 @@ COPY zoopick.notifications (id, user_id, type, payload, read_at, created_at) FRO
 --
 
 COPY zoopick.rooms (id, building_id, name) FROM stdin;
-1	3	Y106
-2	3	Y123
-3	3	Y117
+1	1	Y106
+2	1	Y123
+3	1	Y117
 4	2	Y8110
 5	2	Y8107
 6	2	Y8114
-7	1	Y5420
-8	1	Y5441
-9	1	Y5411
-10	1	Y5445
+7	3	Y5420
+8	3	Y5441
+9	3	Y5411
+10	3	Y5445
 11	4	Y9501
 12	4	Y9508
 13	4	Y9515
@@ -1228,9 +1224,6 @@ COPY zoopick.timetables (id, course_id, enrolled_at, timetable_group_id, color) 
 --
 
 COPY zoopick.users (id, school_email, password, nickname, department, grade, fcm_token, role, created_at, updated_at) FROM stdin;
-1	test@mju.ac.kr	$2a$10$dummyhashedpassword1234567890	?뚯뒪?명븰??而댄벂?곌났?숆낵	4?숇뀈	\N	STUDENT	2026-05-03 20:49:32.934927	\N
-2	admin@mju.ac.kr	$2a$10$dummyhashedpassword0987654321	愿由ъ옄	?쒖뒪?쒖슫??0?숇뀈	\N	ADMIN	2026-05-03 20:49:32.934927	\N
-5	soshat@mju.ac.kr	$2a$10$5ljJyHzJb8xGdFTfeMkV4exQ0xgNR73.YAFIPtGwmBrCShbVCfyfq	?뚯뒪??	ICT?듯빀???4?숇뀈	cGq--XA-QLmCdesPwWq57D:APA91bEfd0MSkXnI1GRGHsZkU8TKrF37a4XgOZps0CAU0tECWTVYrbaogMtHwrfE8vVY-tParVVN9wTeoRsoGfUlBZbiNFtJT5UZGfbXiL-HeWdH-Lj4N0k	STUDENT	2026-05-07 00:56:25.441323	\N
 \.
 
 
@@ -1685,13 +1678,6 @@ CREATE INDEX idx_matches_lost_status ON zoopick.item_matches USING btree (lost_i
 
 
 --
--- Name: idx_matches_score; Type: INDEX; Schema: zoopick; Owner: postgres
---
-
-CREATE INDEX idx_matches_score ON zoopick.item_matches USING btree (score_total DESC);
-
-
---
 -- Name: idx_messages_room_time; Type: INDEX; Schema: zoopick; Owner: postgres
 --
 
@@ -1966,5 +1952,5 @@ ALTER TABLE ONLY zoopick.cctv_videos
 -- PostgreSQL database dump complete
 --
 
-\unrestrict knEphJBtBaU0XtNnamEd80jQUqm15GSDwBEkbzT3sCe6eNhHkym4htiMgY1Pc8T
+\unrestrict 9yBbw4DY2rd1eWndmvNIajy4k3FkWxAiCtQR1obhhKOopXqe3bbyhRZSoTllJR8
 
