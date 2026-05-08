@@ -20,7 +20,7 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
     SELECT *
     FROM (
         SELECT
-            i.id,
+            i.id AS itemId,
             1 - (i.embedding <=> CAST(:embedding AS vector)) AS score
         FROM zoopick.items i
         WHERE i.category = CAST(:category AS item_category)
@@ -61,6 +61,7 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
     WHERE i.type = 'LOST' -- 내가 잃어버린 것만
     AND m.status IN ('CANDIDATE', 'NOTIFIED') -- 아직 매칭되지 않은 것들
     AND i.reporter_id=:userId -- 내거만
+    AND f.reporter_id<>:userId -- found한 아이템이 내거면 안됨
     ORDER BY m.score desc -- 내림차순으로 뽑음
     """, nativeQuery = true)
     List<ItemMatchProjection> itemMatchesByLostItem(@Param("userId") Long userId);
