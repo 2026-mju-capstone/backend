@@ -15,6 +15,6 @@ public class ChatRoomRecord {
     private String ownerNickname;
     @JsonProperty("finder_nickname")
     private String finderNickname;
-    @JsonProperty("item_detail")
-    private String itemDetail;
+    @JsonProperty("item_name")
+    private String itemName;
 }

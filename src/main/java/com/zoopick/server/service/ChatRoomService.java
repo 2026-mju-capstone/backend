@@ -41,7 +41,7 @@ public class ChatRoomService {
 
         Optional<ChatRoom> existingChatRoom = chatRoomRepository.findByParticipantIdAndItemIdIs(requesterId, itemId);
         if (existingChatRoom.isPresent())
-            return new CreateChatRoomResult(false, existingChatRoom.get().getId());
+            return new CreateChatRoomResult(false, chatRoomMapper.toChatRoomRecord(existingChatRoom.get()));
 
         ChatRoom chatRoom = ChatRoom.builder()
                 .item(item)
@@ -49,7 +49,7 @@ public class ChatRoomService {
                 .finder(resolveFinder(item.getType(), requester, counterpart))
                 .build();
         ChatRoom savedChatRoom = chatRoomRepository.save(chatRoom);
-        return new CreateChatRoomResult(true, savedChatRoom.getId());
+        return new CreateChatRoomResult(true, chatRoomMapper.toChatRoomRecord(savedChatRoom));
     }
 
     /**

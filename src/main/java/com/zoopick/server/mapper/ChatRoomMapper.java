@@ -15,13 +15,13 @@ public class ChatRoomMapper {
                 .roomId(chatRoom.getId())
                 .ownerNickname(chatRoom.getOwner().getNickname())
                 .finderNickname(chatRoom.getFinder().getNickname())
-                .itemDetail(resolveItemDetail(chatRoom.getItem()))
+                .itemName(resolveItemDetail(chatRoom.getItem()))
                 .build();
     }
 
     private String resolveItemDetail(@Nullable Item item) {
         if (item == null)
             return "";
-        return item.getCategory().toString();
+        return item.getCategory().getDisplayName();
     }
 }
