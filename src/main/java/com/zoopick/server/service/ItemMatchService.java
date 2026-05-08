@@ -1,5 +1,6 @@
 package com.zoopick.server.service;
 
+import com.zoopick.server.dto.item.ItemMatchResultResponse;
 import com.zoopick.server.dto.item.SimilarItemResult;
 import com.zoopick.server.entity.Item;
 import com.zoopick.server.entity.ItemMatch;
@@ -29,11 +30,15 @@ public class ItemMatchService {
         log.info("매칭 시작 ID: {}", itemId);
         Item targetItem = itemRepository.findByIdOrThrow(itemId); // 게시글이 올라간 아이템
         Vector embedding = Vector.of(targetItem.getEmbedding());
-        List<SimilarItemResult> similarItems = itemMatchRepository.findSimilarItems(embedding,
-                                                                               targetItem.getType().name(),
-                                                                               targetItem.getCategory().name(),
-                                                                               targetItem.getColor().name(),
-                                                                               similarityThreshold);
+        List<SimilarItemResult> similarItems = itemMatchRepository.findSimilarItems(
+                        embedding,
+                        targetItem.getType().name(),
+                        targetItem.getCategory().name(),
+                        targetItem.getColor().name(),
+                        similarityThreshold)
+                .stream()
+                .map(p -> new SimilarItemResult(p.getItemId(), p.getScore()))
+                .toList();
         if (!similarItems.isEmpty()) {
             for (SimilarItemResult similarItemResult : similarItems) {
                 Item foundItemInDb = itemRepository.findByIdOrThrow(similarItemResult.getItemId());
@@ -53,7 +58,25 @@ public class ItemMatchService {
                     itemMatchRepository.save(itemMatch);
             }
         }
-        else log.warn("매칭된 아이템이 없습니다.", itemId);
+        else log.warn("매칭된 아이템이 없습니다.");
         log.info("매칭 종료 ID: {}", targetItem.getId());
+    }
+
+    public List<ItemMatchResultResponse> getItemMatchResult(Long userId) {
+        return itemMatchRepository.itemMatchesByLostItem(userId)
+                .stream()
+                .map(p -> new ItemMatchResultResponse(
+                        p.getMatchId(),
+                        p.getFoundItemId(),
+                        p.getFoundPostId(),
+                        p.getFoundPostTitle(),
+                        p.getFoundImageUrl(),
+                        p.getLocationName(),
+                        p.getFoundNickname(),
+                        p.getFoundDepartment(),
+                        p.getScore(),
+                        MatchStatus.valueOf(p.getStatus())
+                ))
+                .toList();
     }
 }

@@ -1,6 +1,7 @@
 package com.zoopick.server.repository;
 
-import com.zoopick.server.dto.item.SimilarItemResult;
+import com.zoopick.server.dto.item.ItemMatchProjection;
+import com.zoopick.server.dto.item.SimilarItemProjection;
 import com.zoopick.server.entity.Item;
 import com.zoopick.server.entity.ItemMatch;
 import org.springframework.data.domain.Vector;
@@ -29,14 +30,38 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
         ORDER BY i.embedding <=> CAST(:embedding AS vector)
         LIMIT 100
     ) t
-    WHERE t.score >= :threshold;
+    WHERE t.score >= :threshold
     """, nativeQuery = true)
-    List<SimilarItemResult> findSimilarItems(@Param("embedding") Vector embedding,
-                                             @Param("excludeType") String excludeType,
-                                             @Param("category") String category,
-                                             @Param("color") String color,
-                                             @Param("threshold") float threshold);
+    List<SimilarItemProjection> findSimilarItems(@Param("embedding") Vector embedding,
+                                                 @Param("excludeType") String excludeType,
+                                                 @Param("category") String category,
+                                                 @Param("color") String color,
+                                                 @Param("threshold") float threshold);
 
     // 중복 체크
     boolean existsByLostItemAndFoundItem(Item lostItem, Item foundItem);
+
+    @Query(value = """
+    SELECT 
+    m.id as matchId,                 -- 매칭 ID
+    f.id as foundItemId,             -- 매칭된 item ID
+    p.id as foundPostId,             -- 매칭된 post ID
+    p.title as foundPostTitle,       -- 매칭된 post 제목
+    f.location_name  as locationName,-- 매칭된 post 장소
+    f.image_url as foundImageUrl,    -- 매칭된 item 이미지 url
+    u.nickname as foundNickname,     -- 찾은 사람 닉네임
+    u.department as foundDepartment, -- 찾은 사람 과
+    m.score as score,                -- 매칭 점수
+    m.status as status               -- 현재 상태
+    FROM items i
+    JOIN item_matches m ON i.id = m.lost_item_id
+    JOIN items f ON m.found_item_id = f.id
+    JOIN item_posts p on f.id = p.item_id
+    JOIN users u ON u.id = f.reporter_id
+    WHERE i.type = 'LOST' -- 내가 잃어버린 것만
+    AND m.status IN ('CANDIDATE', 'NOTIFIED') -- 아직 매칭되지 않은 것들
+    AND i.reporter_id=:userId -- 내거만
+    ORDER BY m.score desc -- 내림차순으로 뽑음
+    """, nativeQuery = true)
+    List<ItemMatchProjection> itemMatchesByLostItem(@Param("userId") Long userId);
 }
