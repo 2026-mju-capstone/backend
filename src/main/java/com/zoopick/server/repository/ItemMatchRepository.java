@@ -1,11 +1,13 @@
 package com.zoopick.server.repository;
 
-import com.zoopick.server.dto.item.ItemMatchProjection;
-import com.zoopick.server.dto.item.SimilarItemProjection;
+import com.zoopick.server.dto.match.ItemMatchProjection;
+import com.zoopick.server.dto.match.SimilarItemProjection;
 import com.zoopick.server.entity.Item;
 import com.zoopick.server.entity.ItemMatch;
+import com.zoopick.server.exception.DataNotFoundException;
 import org.springframework.data.domain.Vector;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,6 +17,11 @@ import java.util.List;
 
 @Repository
 public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
+
+
+    default ItemMatch findByIdOrThrow(Long id) {
+        return findById(id).orElseThrow(() -> DataNotFoundException.from("매칭", id));
+    }
 
     @Query(value = """
     SELECT *
@@ -65,4 +72,16 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
     ORDER BY m.score desc -- 내림차순으로 뽑음
     """, nativeQuery = true)
     List<ItemMatchProjection> itemMatchesByLostItem(@Param("userId") Long userId);
+
+    // 매칭 컨펌된 것 제외 모든 물품을 다 rejected
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+    UPDATE item_matches SET status = 'REJECTED'
+    WHERE (lost_item_id = :lostItemId OR found_item_id = :foundItemId)
+    AND id != :matchId
+    AND status IN ('CANDIDATE', 'NOTIFIED')
+""", nativeQuery = true)
+    int rejectOthersByLostItem(@Param("matchId") Long matchId,
+                                @Param("lostItemId") Long lostItemId,
+                                @Param("foundItemId") Long foundItemId);
 }
