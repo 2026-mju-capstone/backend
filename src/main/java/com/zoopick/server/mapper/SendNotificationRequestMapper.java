@@ -4,9 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zoopick.server.dto.notification.SendNotificationRequest;
 import com.zoopick.server.entity.NotificationType;
 import com.zoopick.server.exception.InternalServerException;
-import com.zoopick.server.service.command.ChatMessagePayload;
-import com.zoopick.server.service.command.NotificationPayload;
-import com.zoopick.server.service.command.SendNotificationCommand;
+import com.zoopick.server.service.command.*;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
@@ -18,7 +16,11 @@ import java.util.Map;
 @NullMarked
 public class SendNotificationRequestMapper {
     private final Map<NotificationType, Class<? extends NotificationPayload>> payloadTypes = Map.of(
-            NotificationType.CHAT_MESSAGE, ChatMessagePayload.class
+            NotificationType.CHAT_MESSAGE, ChatMessagePayload.class,
+            NotificationType.ITEM_RETURNED, ItemReturnedPayload.class,
+            NotificationType.LOCKER_READY, LockerReadyPayload.class,
+            NotificationType.THEFT_SUSPECTED, TheftSuspectedPayload.class,
+            NotificationType.MATCH_FOUND, MatchFoundPayload.class
     );
 
     private final ObjectMapper objectMapper;

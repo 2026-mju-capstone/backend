@@ -1,6 +1,5 @@
 package com.zoopick.server.service.command;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.zoopick.server.entity.ChatRoom;
 import com.zoopick.server.entity.NotificationType;
@@ -12,7 +11,7 @@ import java.util.Map;
 
 @AllArgsConstructor
 @NullMarked
-public final class ChatMessagePayload implements NotificationPayload {
+public class ChatMessagePayload implements NotificationPayload {
     @JsonProperty("room_id")
     private final long roomId;
     @JsonProperty("sender_nickname")
@@ -24,13 +23,11 @@ public final class ChatMessagePayload implements NotificationPayload {
         return new ChatMessagePayload(chatRoom.getId(), sender.getNickname(), message);
     }
 
-    @JsonIgnore
     @Override
     public NotificationType type() {
         return NotificationType.CHAT_MESSAGE;
     }
 
-    @JsonIgnore
     @Override
     public Map<String, String> toMap() {
         return Map.of(
