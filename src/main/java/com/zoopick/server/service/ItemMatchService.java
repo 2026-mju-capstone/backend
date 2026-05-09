@@ -1,13 +1,14 @@
 package com.zoopick.server.service;
 
-import com.zoopick.server.dto.item.ItemMatchResultResponse;
-import com.zoopick.server.dto.item.SimilarItemResult;
-import com.zoopick.server.entity.Item;
-import com.zoopick.server.entity.ItemMatch;
-import com.zoopick.server.entity.ItemType;
-import com.zoopick.server.entity.MatchStatus;
+import com.zoopick.server.dto.match.ItemMatchResultResponse;
+import com.zoopick.server.dto.match.MatchManualRequest;
+import com.zoopick.server.dto.match.MatchManualResponse;
+import com.zoopick.server.dto.match.SimilarItemResult;
+import com.zoopick.server.entity.*;
+import com.zoopick.server.exception.BadRequestException;
 import com.zoopick.server.repository.ItemMatchRepository;
 import com.zoopick.server.repository.ItemRepository;
+import com.zoopick.server.repository.LockerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +25,7 @@ import java.util.List;
 public class ItemMatchService {
     private final ItemRepository itemRepository;
     private final ItemMatchRepository itemMatchRepository;
+    private final LockerRepository lockerRepository;
     @Value("${zoopick.similarity.threshold}")
     private float similarityThreshold;
     public void createMatch(Long itemId) {
@@ -78,5 +80,64 @@ public class ItemMatchService {
                         MatchStatus.valueOf(p.getStatus())
                 ))
                 .toList();
+    }
+
+    public void confirmMatch(Long matchId) {
+        ItemMatch itemMatch = itemMatchRepository.findByIdOrThrow(matchId);
+        Item lostItem = itemMatch.getLostItem();
+        Item foundItem = itemMatch.getFoundItem();
+
+        lostItem.setStatus(ItemStatus.MATCHED);
+        foundItem.setStatus(ItemStatus.MATCHED);
+
+        itemMatch.setStatus(MatchStatus.CONFIRMED);
+        log.info("매칭 CONFIRMED ID: {}", matchId);
+    }
+
+    public void rejectMatch(Long matchId) {
+        ItemMatch itemMatch = itemMatchRepository.findByIdOrThrow(matchId);
+        itemMatch.setStatus(MatchStatus.REJECTED);
+        log.info("매칭 REJECTED ID: {}", matchId);
+    }
+
+    public MatchManualResponse matchManual(MatchManualRequest request) {
+        log.info("수동 매칭 시작: {} <-> {}", request.getLostItemId(), request.getFoundItemId());
+        Item lostItem = itemRepository.findByIdOrThrow(request.getLostItemId());
+        Item foundItem = itemRepository.findByIdOrThrow(request.getFoundItemId());
+
+        if (itemMatchRepository.existsByLostItemAndFoundItem(lostItem, foundItem)) {
+            throw new BadRequestException("이미 진행중인 매칭입니다.");
+        }
+        if (itemMatchRepository.existsByLostItemAndStatus(lostItem, MatchStatus.CONFIRMED) ||
+                itemMatchRepository.existsByFoundItemAndStatus(foundItem, MatchStatus.CONFIRMED)) {
+            throw new BadRequestException("이미 주인을 찾은 물품이 있습니다.");
+        }
+
+        ItemMatch itemMatch = ItemMatch.builder() //새로운 매칭 생성
+                .lostItem(lostItem)
+                .foundItem(foundItem)
+                .score(1.0f)
+                .status(MatchStatus.CONFIRMED)
+                .build();
+        itemMatchRepository.save(itemMatch);
+        itemMatchRepository.rejectOthersByLostItem(itemMatch.getId(), lostItem.getId(), foundItem.getId());
+        log.info("매칭 저장 완료 ID: {}", itemMatch.getId());
+
+        //LOCKER, CHAT 분기
+        if (foundItem.getStatus().equals(ItemStatus.IN_LOCKER)) {
+            Locker locker = lockerRepository.findLockerByCurrentItem(foundItem);
+            log.info("매칭 LOCKER {} <-> {}", request.getLostItemId(), request.getFoundItemId());
+            return MatchManualResponse.builder()
+                    .matchId(itemMatch.getId())
+                    .matchManualType(MatchManualType.LOCKER)
+                    .lockerId(locker.getId())
+                    .build();
+        } else {
+            log.info("매칭 CHAT {} <-> {}", request.getLostItemId(), request.getFoundItemId());
+            return MatchManualResponse.builder()
+                    .matchId(itemMatch.getId())
+                    .matchManualType(MatchManualType.CHAT)
+                    .build();
+        }
     }
 }
