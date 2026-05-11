@@ -3,9 +3,10 @@ package com.zoopick.server.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.OnDelete;
 import org.hibernate.annotations.OnDeleteAction;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -16,6 +17,7 @@ import java.time.LocalDateTime;
 @Builder
 @Entity
 @Table(name = "chat_messages", schema = "zoopick")
+@EntityListeners(AuditingEntityListener.class)
 public class ChatMessage {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,8 +44,7 @@ public class ChatMessage {
     private LocalDateTime readAt;
 
     @NotNull
-    @Builder.Default
-    @ColumnDefault("now()")
     @Column(name = "sent_at", nullable = false)
-    private LocalDateTime sentAt = LocalDateTime.now();
+    @CreatedDate
+    private LocalDateTime sentAt;
 }

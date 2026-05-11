@@ -2,6 +2,9 @@ package com.zoopick.server.entity;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -13,6 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EntityListeners(AuditingEntityListener.class)
 public class CctvVideoProgress {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,16 +32,12 @@ public class CctvVideoProgress {
     @Builder.Default
     private VideoAnalysisStatus status = VideoAnalysisStatus.PENDING;
 
-
-
     @Column(name = "total_duration_seconds", nullable = false)
     private Integer totalDurationSeconds;
 
     @Column(name = "analyzed_seconds", nullable = false)
     @Builder.Default
     private Integer analyzedSeconds = 0;
-
-
 
     @Column(name = "estimated_completion_at")
     private LocalDateTime estimatedCompletionAt;
@@ -46,11 +46,6 @@ public class CctvVideoProgress {
     private LocalDateTime startedAt;
 
     @Column(name = "last_updated_at")
-    @Builder.Default
-    private LocalDateTime lastUpdatedAt = LocalDateTime.now();
-
-    @PreUpdate
-    public void preUpdate() {
-        this.lastUpdatedAt = LocalDateTime.now();
-    }
+    @LastModifiedDate
+    private LocalDateTime lastUpdatedAt;
 }
