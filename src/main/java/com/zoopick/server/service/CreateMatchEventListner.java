@@ -14,6 +14,7 @@ import com.zoopick.server.service.notification.payload.MatchFoundPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -27,7 +28,7 @@ public class CreateMatchEventListner {
     private final ItemPostRepository itemPostRepository;
     private final ItemRepository itemRepository;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMatchCreated(CreateMatchEvent event) {
         ItemMatch match = itemMatchRepository.findByIdOrThrow(event.matchId());
