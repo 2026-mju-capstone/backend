@@ -1,7 +1,6 @@
 package com.zoopick.server.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.firebase.messaging.FirebaseMessagingException;
 import com.zoopick.server.service.ChatRoomService;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
@@ -22,7 +21,7 @@ public class ChatWebSocketBroadcaster {
     private final ObjectMapper objectMapper;
     private final ChatRoomService chatRoomService;
 
-    public void broadcast(long roomId, WebSocketSession senderSession, String message) throws IOException, FirebaseMessagingException {
+    public void broadcast(long roomId, WebSocketSession senderSession, String message) throws IOException {
         long senderId = WebSocketSessionUtils.getUserId(senderSession);
         String senderNickname = WebSocketSessionUtils.getNickname(senderSession);
         ChatBroadcastMessage broadcastMessage = new ChatBroadcastMessage(senderNickname, message);
@@ -41,6 +40,8 @@ public class ChatWebSocketBroadcaster {
         }
 
         for (long participantId : chatRoomService.getParticipants(roomId)) {
+            if (senderId == participantId)
+                continue;
             if (!receiverInWebSocketIds.contains(participantId))
                 chatRoomService.sendMessageWithNotification(senderId, roomId, message);
         }

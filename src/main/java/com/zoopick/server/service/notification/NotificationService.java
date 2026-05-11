@@ -14,6 +14,7 @@ import com.zoopick.server.repository.UserRepository;
 import com.zoopick.server.service.notification.event.FcmMessageRequest;
 import com.zoopick.server.service.notification.event.NotificationDispatchRequestedEvent;
 import com.zoopick.server.service.notification.payload.NotificationPayload;
+import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.context.ApplicationEventPublisher;
@@ -21,10 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -53,8 +51,6 @@ public class NotificationService {
     @Transactional
     public String send(User user, SendNotificationCommand command) {
         String fcmToken = user.getFcmToken();
-        if (fcmToken == null)
-            throw DataNotFoundException.from("FCM 토큰", user.getSchoolEmail());
 
         ZoopickNotification zoopickNotification = notificationMapper.toZoopickNotification(user, command);
         ZoopickNotification savedNotification = notificationRepository.save(zoopickNotification);
@@ -155,11 +151,11 @@ public class NotificationService {
     private FcmMessageRequest buildFcmMessageRequest(
             ZoopickNotification notification,
             SendNotificationCommand command,
-            String fcmToken
+            @Nullable String fcmToken
     ) {
         Map<String, String> data = new HashMap<>(command.payload().toMap());
         data.put("type", command.payload().type().name());
         data.put("id", String.valueOf(notification.getId()));
-        return new FcmMessageRequest(fcmToken, command.title(), command.body(), data);
+        return new FcmMessageRequest(Optional.ofNullable(fcmToken), command.title(), command.body(), data);
     }
 }
