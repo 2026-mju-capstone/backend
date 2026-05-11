@@ -1,10 +1,7 @@
 package com.zoopick.server.service;
 
 import com.google.firebase.messaging.FirebaseMessagingException;
-import com.zoopick.server.dto.match.ItemMatchResultResponse;
-import com.zoopick.server.dto.match.MatchManualRequest;
-import com.zoopick.server.dto.match.MatchManualResponse;
-import com.zoopick.server.dto.match.SimilarItemResult;
+import com.zoopick.server.dto.match.*;
 import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
 import com.zoopick.server.exception.DataNotFoundException;
@@ -18,6 +15,7 @@ import com.zoopick.server.service.notification.payload.MatchFoundPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Vector;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +26,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@Transactional
 @RequiredArgsConstructor
 @Slf4j
 public class ItemMatchService {
@@ -37,9 +34,11 @@ public class ItemMatchService {
     private final LockerRepository lockerRepository;
     private final NotificationService notificationService;
     private final ItemPostRepository itemPostRepository;
+    private final ApplicationEventPublisher eventPublisher;
     @Value("${zoopick.similarity.threshold}")
     private float similarityThreshold;
 
+    @Transactional
     public void createMatch(Long itemId) {
         log.info("매칭 시작 ID: {}", itemId);
         Item targetItem = itemRepository.findByIdOrThrow(itemId); // 게시글이 올라간 아이템
@@ -69,7 +68,7 @@ public class ItemMatchService {
                     Item found = itemMap.get(s.getItemId());
                     float score = (float) s.getScore();
                     if (targetItem.getColor() == found.getColor()) score *= 1.02f;
-                    return new SimilarItemResult(s.getItemId(), score);
+                    return new SimilarItemResult(s.getItemId(), Math.min(score, 1.0f));
                 })
                 .sorted(Comparator.comparingDouble(SimilarItemResult::getScore).reversed())
                 .limit(5)
@@ -90,6 +89,7 @@ public class ItemMatchService {
                         .status(MatchStatus.CANDIDATE)
                         .build());
                 log.info("매칭된 아이템 ID: {}", foundItemInDb.getId());
+                eventPublisher.publishEvent(new CreateMatchEvent(savedMatch.getId(), lostItem, foundItem));
                 if (sendMatchNotification(lostItem, foundItem, savedMatch)) {
                     savedMatch.setStatus(MatchStatus.NOTIFIED);
                 }
@@ -98,6 +98,7 @@ public class ItemMatchService {
         log.info("매칭 종료 ID: {}", targetItem.getId());
     }
 
+    @Transactional
     public List<ItemMatchResultResponse> getItemMatchResult(Long userId) {
         return itemMatchRepository.itemMatchesByLostItem(userId)
                 .stream()
@@ -115,6 +116,7 @@ public class ItemMatchService {
                 .toList();
     }
 
+    @Transactional
     public void confirmMatch(Long matchId) {
         ItemMatch itemMatch = itemMatchRepository.findByIdOrThrow(matchId);
         Item lostItem = itemMatch.getLostItem();
@@ -129,12 +131,14 @@ public class ItemMatchService {
         log.info("매칭 CONFIRMED ID: {}", matchId);
     }
 
+    @Transactional
     public void rejectMatch(Long matchId) {
         ItemMatch itemMatch = itemMatchRepository.findByIdOrThrow(matchId);
         itemMatch.setStatus(MatchStatus.REJECTED);
         log.info("매칭 REJECTED ID: {}", matchId);
     }
 
+    @Transactional
     public MatchManualResponse matchManual(MatchManualRequest request) {
         log.info("수동 매칭 시작: {} <-> {}", request.getLostItemId(), request.getFoundItemId());
         Item lostItem = itemRepository.findByIdOrThrow(request.getLostItemId());
