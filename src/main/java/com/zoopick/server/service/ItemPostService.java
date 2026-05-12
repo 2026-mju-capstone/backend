@@ -2,11 +2,10 @@ package com.zoopick.server.service;
 
 import com.zoopick.server.dto.item.*;
 import com.zoopick.server.entity.*;
+import com.zoopick.server.exception.DataNotFoundException;
+import com.zoopick.server.exception.ForbiddenException;
 import com.zoopick.server.mapper.ItemPostMapper;
-import com.zoopick.server.repository.BuildingRepository;
-import com.zoopick.server.repository.ItemPostRepository;
-import com.zoopick.server.repository.ItemRepository;
-import com.zoopick.server.repository.UserRepository;
+import com.zoopick.server.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -27,6 +26,7 @@ public class ItemPostService {
     private final UserRepository userRepository;
     private final ItemPostRepository itemPostRepository;
     private final BuildingRepository buildingRepository;
+    private final ItemMatchRepository itemMatchRepository;
     private final ItemPostMapper itemPostMapper;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -71,5 +71,26 @@ public class ItemPostService {
     public ItemPostRecord getItemPost(long id) {
         ItemPost itemPost = itemPostRepository.findByIdOrThrow(id);
         return itemPostMapper.toItemPostRecord(itemPost);
+    }
+
+    public ItemOwnerInfoResult getOwnerInfo(long userId, long itemId) {
+        Item item = itemRepository.findById(itemId)
+                .orElseThrow(() -> DataNotFoundException.from("물품", itemId));
+
+        // [QR-2] 인가 체크: 본인이 신고한 물품이거나, CONFIRMED 매칭된 상대방인지 확인
+        boolean isReporter = item.getReporter().getId().equals(userId);
+        boolean isMatchedFound = itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(
+                item, userId, MatchStatus.CONFIRMED);
+        boolean isMatchedLost = itemMatchRepository.existsByLostItemAndFoundItem_Reporter_IdAndStatus(
+                item, userId, MatchStatus.CONFIRMED);
+
+        if (!isReporter && !isMatchedFound && !isMatchedLost) {
+            throw new ForbiddenException(
+                    "물품 소유자 정보를 볼 권한이 없습니다.",
+                    "User " + userId + " is not authorized to see owner info of item " + itemId);
+        }
+
+        User owner = item.getReporter();
+        return new ItemOwnerInfoResult(owner.getNickname(), owner.getDepartment());
     }
 }

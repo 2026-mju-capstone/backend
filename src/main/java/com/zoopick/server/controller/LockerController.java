@@ -44,7 +44,7 @@ public class LockerController {
             @RequestBody(required = false) UnlockRequest req) {
 
         Long itemId = (req != null) ? req.itemId() : null;
-        LockerCommand cmd = lockerService.requestUnlock(principal.email(), lockerId, itemId);
+        LockerCommand cmd = lockerService.requestUnlock(principal.id(), lockerId, itemId);
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -66,7 +66,7 @@ public class LockerController {
     public ResponseEntity<Map<String, Object>> lock(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long lockerId) {
-        LockerCommand cmd = lockerService.requestLock(principal.email(), lockerId);
+        LockerCommand cmd = lockerService.requestLock(principal.id(), lockerId);
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "command_id", cmd.getId(),

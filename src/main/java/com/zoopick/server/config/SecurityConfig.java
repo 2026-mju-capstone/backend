@@ -40,6 +40,10 @@ public class SecurityConfig {
                 // Vision 및 CCTV API 허용 (테스트용)
                 .requestMatchers("/api/vision/**", "/api/cctv/**", "/api/internal/**").permitAll()
 
+                // IoT 디바이스(아두이노) 전용 엔드포인트 허용
+                .requestMatchers(HttpMethod.GET, "/api/lockers/*/pending").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/lockers/*/commands/*/ack").permitAll()
+
                 .requestMatchers("/api/metadata/**").permitAll()
                 
                 // [수정 포인트] 실제 테스트 주소인 /api/auth/... 계열을 모두 허용 목록에 추가

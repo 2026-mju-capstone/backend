@@ -77,4 +77,19 @@ public class ItemPostController {
         ItemPostRecord result = itemPostService.getItemPost(id);
         return ResponseEntity.ok(CommonResponse.success(result));
     }
+
+    @Operation(summary = "물품 소유자 정보 조회", description = "QR 스캔 시 해당 물품의 소유자(신고자) 정보를 조회합니다. 권한 확인이 필요합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "403", description = "권한 없음"),
+            @ApiResponse(responseCode = "404", description = "물품을 찾을 수 없음")
+    })
+    @GetMapping("/{itemId}/owner-info")
+    public ResponseEntity<CommonResponse<ItemOwnerInfoResult>> getOwnerInfo(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long itemId
+    ) {
+        ItemOwnerInfoResult result = itemPostService.getOwnerInfo(principal.id(), itemId);
+        return ResponseEntity.ok(CommonResponse.success(result));
+    }
 }

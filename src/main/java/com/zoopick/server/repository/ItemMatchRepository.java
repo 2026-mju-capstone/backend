@@ -90,4 +90,8 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
     boolean existsByLostItemAndStatus(Item lostItem, MatchStatus status);
 
     boolean existsByFoundItemAndStatus(Item foundItem, MatchStatus status);
+
+    boolean existsByFoundItemAndLostItem_Reporter_IdAndStatus(Item foundItem, Long reporterId, MatchStatus status);
+
+    boolean existsByLostItemAndFoundItem_Reporter_IdAndStatus(Item lostItem, Long reporterId, MatchStatus status);
 }
