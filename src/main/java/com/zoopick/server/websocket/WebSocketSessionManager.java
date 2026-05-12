@@ -1,5 +1,6 @@
 package com.zoopick.server.websocket;
 
+import com.zoopick.server.websocket.message.ChatInformationPayload;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
@@ -13,6 +14,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class WebSocketSessionManager {
     private final Map<Long, Set<WebSocketSession>> sessionByRoom = new ConcurrentHashMap<>();
     private final Map<String, Long> roomBySessionId = new ConcurrentHashMap<>();
+    private final ChatEventSender chatEventSender;
+
+    public WebSocketSessionManager(ChatEventSender chatEventSender) {
+        this.chatEventSender = chatEventSender;
+    }
 
     public void join(long roomId, WebSocketSession session) {
         Long previousRoomId = roomBySessionId.put(session.getId(), roomId);
@@ -20,6 +26,7 @@ public class WebSocketSessionManager {
             leave(previousRoomId, session);
         sessionByRoom.computeIfAbsent(roomId, key -> ConcurrentHashMap.newKeySet())
                 .add(session);
+        chatEventSender.sendMessageSafely(session, new ChatInformationPayload("환영합니다."));
     }
 
     public void leave(WebSocketSession session) {

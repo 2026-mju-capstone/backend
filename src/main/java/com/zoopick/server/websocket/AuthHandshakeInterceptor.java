@@ -18,6 +18,12 @@ import org.springframework.web.socket.server.HandshakeInterceptor;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * 연결을 시도하는 사용자의 인증 정보를 확인하고 필요한 정보를 주입합니다.
+ *
+ * @see #USER_ID_ATTRIBUTE
+ * @see #USER_NICKNAME_ATTRIBUTE
+ */
 @Component
 @RequiredArgsConstructor
 @NullMarked
