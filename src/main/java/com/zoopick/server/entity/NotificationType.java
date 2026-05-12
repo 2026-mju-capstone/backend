@@ -5,5 +5,5 @@ public enum NotificationType {
     CHAT_MESSAGE,
     ITEM_RETURNED,
     THEFT_SUSPECTED,
-    LOCKER_READY
+    CHAT, LOCKER_READY
 }

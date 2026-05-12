@@ -13,4 +13,8 @@ public class LoginRequest {
     private String schoolEmail;
     @NotBlank
     private String password;
+
+    public void setSchoolEmail(String mail) {
+
+    }
 }
