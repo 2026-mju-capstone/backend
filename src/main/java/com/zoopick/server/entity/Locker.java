@@ -23,5 +23,5 @@ public class Locker {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "current_item_id")
-    private Item currentItem;   // 보관 중인 아이템 (없으면 null)
+    private Item currentItem;   // 보관 중인 아이템 없으면 null
 }

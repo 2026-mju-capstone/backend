@@ -58,7 +58,7 @@ public class LockerService {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> DataNotFoundException.from("물품", itemId));
 
-        // [AUTH-1] 본인이 신고한 습득물인지 확인
+        //본인이 신고한 습득물인지 확인
         if (!item.getReporter().getId().equals(userId)) {
             throw new ForbiddenException(
                     "본인이 신고한 물품만 보관할 수 있습니다.",
@@ -87,7 +87,7 @@ public class LockerService {
     private void handleRetrieval(Long userId, Locker locker) {
         Item stored = locker.getCurrentItem();
 
-        // [AUTH-2] 권한 확인: 신고자 본인이거나, CONFIRMED 매칭된 소유자여야 함
+        //권한 확인: 신고자 본인이거나, CONFIRMED 매칭된 소유자여야 함
         boolean isReporter = stored.getReporter().getId().equals(userId);
         boolean isMatchedOwner = itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(
                 stored, userId, MatchStatus.CONFIRMED);
@@ -116,7 +116,7 @@ public class LockerService {
         Locker locker = lockerRepository.findById(lockerId)
                 .orElseThrow(() -> DataNotFoundException.from("사물함", lockerId));
 
-        // [AUTH-3] 잠금 권한 확인: 가장 최근에 이 사물함을 연(OPEN) 사람만 잠글 수 있음
+        //잠금 권한 확인: 가장 최근에 이 사물함을 연(OPEN) 사람만 잠글 수 있음
         commandRepository.findFirstByLocker_IdAndCommandOrderByCreatedAtDesc(lockerId, LockerCommandType.OPEN)
                 .ifPresent(lastOpenCmd -> {
                     if (!lastOpenCmd.getIssuedBy().getId().equals(userId)) {
