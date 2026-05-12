@@ -1,26 +1,28 @@
 package com.zoopick.server.service.notification;
 
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.FirebaseMessagingException;
-import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.Notification;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zoopick.server.dto.notification.ChangeReadStatusResult;
 import com.zoopick.server.dto.notification.NotificationRecord;
 import com.zoopick.server.entity.User;
 import com.zoopick.server.entity.ZoopickNotification;
-import com.zoopick.server.exception.AccessTokenException;
 import com.zoopick.server.exception.BadRequestException;
 import com.zoopick.server.exception.DataNotFoundException;
 import com.zoopick.server.mapper.notification.NotificationMapper;
 import com.zoopick.server.repository.NotificationRepository;
 import com.zoopick.server.repository.UserRepository;
+import com.zoopick.server.service.notification.event.FcmMessageRequest;
+import com.zoopick.server.service.notification.event.NotificationDispatchRequestedEvent;
+import com.zoopick.server.service.notification.payload.NotificationPayload;
+import jakarta.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -31,64 +33,73 @@ public class NotificationService {
     private final UserRepository userRepository;
     private final NotificationRepository notificationRepository;
     private final NotificationMapper notificationMapper;
+    private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public void register(long userId, String fcmToken) throws AccessTokenException, DataNotFoundException {
+    public void register(long userId, String fcmToken) {
         User user = userRepository.findByIdOrThrow(userId);
         user.setFcmToken(fcmToken);
         userRepository.save(user);
     }
 
-    public String send(long userId, SendNotificationCommand command) throws FirebaseMessagingException {
+    @Transactional
+    public String send(long userId, SendNotificationCommand command) {
         User user = userRepository.findByIdOrThrow(userId);
         return this.send(user, command);
     }
 
-    public String send(User user, SendNotificationCommand command) throws FirebaseMessagingException {
+    @Transactional
+    public String send(User user, SendNotificationCommand command) {
         String fcmToken = user.getFcmToken();
-        if (fcmToken == null)
-            throw DataNotFoundException.from("FCM 토큰", user.getSchoolEmail());
 
         ZoopickNotification zoopickNotification = notificationMapper.toZoopickNotification(user, command);
         ZoopickNotification savedNotification = notificationRepository.save(zoopickNotification);
-
-        Notification notification = Notification.builder()
-                .setTitle(command.title())
-                .setBody(command.body())
-                .build();
-        Message message = Message.builder()
-                .setNotification(notification)
-                .putAllData(command.payload().toMap())
-                .putData("type", command.payload().type().name())
-                .putData("id", String.valueOf(savedNotification.getId()))
-                .setToken(fcmToken)
-                .build();
-        return FirebaseMessaging.getInstance().send(message);
+        eventPublisher.publishEvent(new NotificationDispatchRequestedEvent(List.of(
+                buildFcmMessageRequest(savedNotification, command, fcmToken)
+        )));
+        return String.valueOf(savedNotification.getId());
     }
 
-    public String broadcast(SendNotificationCommand command) throws FirebaseMessagingException {
-        Notification notification = Notification.builder()
-                .setTitle(command.title())
-                .setBody(command.body())
-                .build();
-
+    @Transactional
+    public String broadcast(SendNotificationCommand command) {
         List<User> users = userRepository.findAll();
         List<ZoopickNotification> zoopickNotifications = users.stream()
                 .map(user -> notificationMapper.toZoopickNotification(user, command))
                 .toList();
         List<ZoopickNotification> savedNotifications = notificationRepository.saveAll(zoopickNotifications);
 
-        List<Message> messages = savedNotifications.stream()
+        List<FcmMessageRequest> messages = savedNotifications.stream()
                 .filter(zoopickNotification -> zoopickNotification.getUser().getFcmToken() != null)
-                .map(zoopickNotification -> Message.builder()
-                        .setNotification(notification)
-                        .putAllData(command.payload().toMap())
-                        .putData("type", command.payload().type().name())
-                        .putData("id", String.valueOf(zoopickNotification.getId()))
-                        .setToken(zoopickNotification.getUser().getFcmToken())
+                .map(zoopickNotification -> buildFcmMessageRequest(
+                        zoopickNotification,
+                        command,
+                        zoopickNotification.getUser().getFcmToken()
+                ))
+                .toList();
+        eventPublisher.publishEvent(new NotificationDispatchRequestedEvent(messages));
+        return String.valueOf(messages.size());
+    }
+
+    public void storeNotification(long userId, NotificationPayload payload) {
+        User user = userRepository.findByIdOrThrow(userId);
+        ZoopickNotification zoopickNotification = ZoopickNotification.builder()
+                .user(user)
+                .type(payload.type())
+                .payload(objectMapper.convertValue(payload, JsonNode.class))
+                .build();
+        notificationRepository.save(zoopickNotification);
+    }
+
+    public void storeNotifications(List<Long> userIds, NotificationPayload payload) {
+        JsonNode convertedPayload = objectMapper.convertValue(payload, JsonNode.class);
+        List<ZoopickNotification> zoopickNotifications = userRepository.findAllById(userIds).stream()
+                .map(user -> ZoopickNotification.builder()
+                        .user(user)
+                        .type(payload.type())
+                        .payload(convertedPayload)
                         .build())
                 .toList();
-
-        return FirebaseMessaging.getInstance().sendEach(messages).toString();
+        notificationRepository.saveAll(zoopickNotifications);
     }
 
     public List<NotificationRecord> getNotifications(long userId) {
@@ -108,10 +119,12 @@ public class NotificationService {
                 .toList();
     }
 
+    @Transactional
     public ChangeReadStatusResult markAsRead(long userId, List<Long> notificationIds) {
         return changeReadStatusRequest(userId, notificationIds, notification -> notification.setReadAt(LocalDateTime.now()));
     }
 
+    @Transactional
     public ChangeReadStatusResult markAsUnread(long userId, List<Long> notificationIds) {
         return changeReadStatusRequest(userId, notificationIds, notification -> notification.setReadAt(null));
     }
@@ -123,7 +136,7 @@ public class NotificationService {
 
         List<Long> succeedIds = new ArrayList<>();
         for (ZoopickNotification notification : notifications) {
-            if (notification.getUser().getId() == userId) {
+            if (notification.getUser().getId().equals(userId)) {
                 readStatusChangeAction.accept(notification);
                 succeedIds.add(notification.getId());
             }
@@ -133,5 +146,16 @@ public class NotificationService {
 
         notificationRepository.saveAll(notifications);
         return new ChangeReadStatusResult(succeedIds);
+    }
+
+    private FcmMessageRequest buildFcmMessageRequest(
+            ZoopickNotification notification,
+            SendNotificationCommand command,
+            @Nullable String fcmToken
+    ) {
+        Map<String, String> data = new HashMap<>(command.payload().toMap());
+        data.put("type", command.payload().type().name());
+        data.put("id", String.valueOf(notification.getId()));
+        return new FcmMessageRequest(Optional.ofNullable(fcmToken), command.title(), command.body(), data);
     }
 }

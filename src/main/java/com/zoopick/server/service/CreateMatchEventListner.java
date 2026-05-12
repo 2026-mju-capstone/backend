@@ -1,6 +1,5 @@
 package com.zoopick.server.service;
 
-import com.google.firebase.messaging.FirebaseMessagingException;
 import com.zoopick.server.dto.match.CreateMatchEvent;
 import com.zoopick.server.entity.Item;
 import com.zoopick.server.entity.ItemMatch;
@@ -36,15 +35,11 @@ public class CreateMatchEventListner {
         Item foundItem = itemRepository.findByIdOrThrow(event.foundItemId());
         String title = itemPostRepository.findByItem(lostItem).getTitle();
         String location = foundItem.getLocationName();
-        try {
-            notificationService.send(lostItem.getReporter(), new SendNotificationCommand(
-                    "분실물 발견",
-                    "회원님이 등록한 %s와 유사한 물건이 %s에서 발견됐어요.".formatted(title, location),
-                    MatchFoundPayload.of(lostItem, match)));
-            match.setStatus(MatchStatus.NOTIFIED);
-            log.info("FCM 전송 성공 matchId: {}", match.getId());
-        } catch (FirebaseMessagingException e) {
-            log.error("FCM 전송 실패 (matchId: {}): {}", match.getId(), e.getMessage());
-        }
+        notificationService.send(lostItem.getReporter(), new SendNotificationCommand(
+                "분실물 발견",
+                "회원님이 등록한 %s와 유사한 물건이 %s에서 발견됐어요.".formatted(title, location),
+                MatchFoundPayload.of(lostItem, match)));
+        match.setStatus(MatchStatus.NOTIFIED);
+        log.info("FCM 전송 성공 matchId: {}", match.getId());
     }
 }

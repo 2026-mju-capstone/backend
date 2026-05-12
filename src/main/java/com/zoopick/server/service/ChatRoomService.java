@@ -1,6 +1,5 @@
 package com.zoopick.server.service;
 
-import com.google.firebase.messaging.FirebaseMessagingException;
 import com.zoopick.server.dto.chat.*;
 import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
@@ -17,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,6 +35,7 @@ public class ChatRoomService {
     private final ChatMessageMapper chatMessageMapper;
     private final ChatRoomMapper chatRoomMapper;
 
+    @Transactional
     public CreateChatRoomResult createChatRoom(long requesterId, CreateChatRoomRequest createChatRoomRequest) {
         if (Objects.equals(requesterId, createChatRoomRequest.getCounterpartId()))
             throw new BadRequestException("잘못된 요청입니다.", "Requester and counterpart is same : " + requesterId);
@@ -123,6 +124,11 @@ public class ChatRoomService {
         return chatRoomMapper.toChatRoomRecord(chatRoom);
     }
 
+    public List<Long> getParticipants(long chatRoomId) {
+        ChatRoom chatRoom = chatRoomRepository.findByIdOrThrow(chatRoomId);
+        return List.of(chatRoom.getOwner().getId(), chatRoom.getFinder().getId());
+    }
+
     public ListMessagesResult getMessages(long userId, long chatRoomId, @Nullable MessageFilter filter) {
         User user = userRepository.findByIdOrThrow(userId);
         ChatRoom chatRoom = chatRoomRepository.findByIdOrThrow(chatRoomId);
@@ -136,7 +142,7 @@ public class ChatRoomService {
         return new ListMessagesResult(chatRoomRecord, messageRecords);
     }
 
-    public void sendMessage(long senderId, long chatRoomId, String message) throws FirebaseMessagingException {
+    private MessageContext sendMessage(long senderId, long chatRoomId, String message) {
         User sender = userRepository.findByIdOrThrow(senderId);
         ChatRoom chatRoom = chatRoomRepository.findByIdOrThrow(chatRoomId);
         verifyParticipant(chatRoom, sender);
@@ -150,12 +156,26 @@ public class ChatRoomService {
                 .content(message)
                 .build();
         chatMessageRepository.save(chatMessage);
+        return new MessageContext(sender, receiver, chatRoom);
+    }
+
+    @Transactional
+    public void sendMessageWithNotification(long senderId, long chatRoomId, String message) {
+        MessageContext context = sendMessage(senderId, chatRoomId, message);
         SendNotificationCommand command = new SendNotificationCommand(
-                sender.getNickname(),
+                context.sender().getNickname(),
                 message,
-                ChatMessagePayload.of(chatRoom, sender, message)
+                ChatMessagePayload.of(context.chatRoom(), context.sender(), message)
         );
-        notificationService.send(receiver, command);
+        notificationService.send(context.receiver(), command);
+    }
+
+    @Transactional
+    public void sendMessageWithoutNotification(long senderId, long chatRoomId, String message) {
+        MessageContext context = sendMessage(senderId, chatRoomId, message);
+        notificationService.storeNotification(context.receiver().getId(), ChatMessagePayload.of(
+                context.chatRoom(), context.sender(), message)
+        );
     }
 
     private User resolveReceiver(ChatRoom chatRoom, User sender) {
@@ -166,7 +186,8 @@ public class ChatRoomService {
         return finder;
     }
 
-    public void closeChatRoom(long userId, long chatRoomId, ChatRoomCloseReason reason) throws FirebaseMessagingException {
+    @Transactional
+    public void closeChatRoom(long userId, long chatRoomId, ChatRoomCloseReason reason) {
         User sender = userRepository.findByIdOrThrow(userId);
         ChatRoom chatRoom = chatRoomRepository.findByIdOrThrow(chatRoomId);
         verifyParticipant(chatRoom, sender);
@@ -189,7 +210,8 @@ public class ChatRoomService {
         notificationService.send(receiver, command);
     }
 
-    public void reopenChatRoom(long userId, long chatRoomId) throws FirebaseMessagingException {
+    @Transactional
+    public void reopenChatRoom(long userId, long chatRoomId) {
         User sender = userRepository.findByIdOrThrow(userId);
         ChatRoom chatRoom = chatRoomRepository.findByIdOrThrow(chatRoomId);
         verifyParticipant(chatRoom, sender);
@@ -210,5 +232,9 @@ public class ChatRoomService {
                 )
         );
         notificationService.send(receiver, command);
+    }
+
+    private record MessageContext(User sender, User receiver, ChatRoom chatRoom) {
+
     }
 }
