@@ -36,11 +36,11 @@ public class ItemMatchService {
         Item targetItem = itemRepository.findByIdOrThrow(itemId); // 게시글이 올라간 아이템
         Vector embedding = Vector.of(targetItem.getEmbedding());
         List<SimilarItemResult> similarItems = itemMatchRepository.findSimilarItems(
-                embedding,
-                targetItem.getType().name(),
-                targetItem.getCategory().name(),
-                targetItem.getReporter().getId(),
-                similarityThreshold)
+                        embedding,
+                        targetItem.getType().name(),
+                        targetItem.getCategory().name(),
+                        targetItem.getReporter().getId(),
+                        similarityThreshold)
                 .stream()
                 .map(p -> new SimilarItemResult(p.getItemId(), p.getScore()))
                 .toList();
@@ -51,7 +51,7 @@ public class ItemMatchService {
         }
 
         Map<Long, Item> itemMap = itemRepository.findAllById(
-                similarItems.stream().map(SimilarItemResult::getItemId).toList())
+                        similarItems.stream().map(SimilarItemResult::getItemId).toList())
                 .stream()
                 .collect(Collectors.toMap(Item::getId, i -> i));
 
