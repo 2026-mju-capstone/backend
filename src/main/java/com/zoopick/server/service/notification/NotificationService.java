@@ -65,8 +65,7 @@ public class NotificationService {
     }
 
     @Transactional
-    public String broadcast(SendNotificationCommand command) {
-        List<User> users = userRepository.findAll();
+    public String send(List<User> users, SendNotificationCommand command) {
         List<ZoopickNotification> zoopickNotifications = users.stream()
                 .map(user -> notificationMapper.toZoopickNotification(user, command))
                 .toList();
@@ -82,6 +81,12 @@ public class NotificationService {
                 .toList();
         eventPublisher.publishEvent(new NotificationDispatchRequestedEvent(messages));
         return String.valueOf(messages.size());
+    }
+
+    @Transactional
+    public String broadcast(SendNotificationCommand command) {
+        List<User> users = userRepository.findAll();
+        return send(users, command);
     }
 
     public void storeNotification(long userId, NotificationPayload payload) {
@@ -114,6 +119,7 @@ public class NotificationService {
         return findNotificationsWith(userId, notificationRepository::findByUserIdAndReadAtIsNullOrderByCreatedAtDesc);
     }
 
+    @Transactional
     public void markAllChatsAsRead(long userId, long roomId) {
         List<ZoopickNotification> notifications = notificationRepository.findAllByUserIdAndType(userId, NotificationType.CHAT_MESSAGE);
         for (ZoopickNotification notification : notifications) {
