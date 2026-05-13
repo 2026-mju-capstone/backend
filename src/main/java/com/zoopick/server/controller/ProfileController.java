@@ -6,6 +6,7 @@ import com.zoopick.server.security.UserPrincipal;
 import com.zoopick.server.service.ProfileService;
 import com.zoopick.server.service.QrCodeService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -50,6 +51,15 @@ public class ProfileController {
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "내 QR 코드 이미지 조회", description = "현재 로그인한 사용자의 QR 코드 PNG 이미지를 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "QR 코드 조회 성공",
+                    content = @Content(mediaType = MediaType.IMAGE_PNG_VALUE)
+            ),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 요청")
+    })
     @GetMapping(value = "/me/qr", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getQRCode(@AuthenticationPrincipal UserPrincipal principal) {
         byte[] imageBytes = qrCodeService.createUserQrCode(principal.id());
