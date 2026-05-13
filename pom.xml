@@ -123,6 +123,11 @@
             <artifactId>hibernate-vector</artifactId>
             <version>7.2.7.Final</version>
         </dependency>
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>javase</artifactId>
+            <version>3.5.4</version>
+        </dependency>
 
     </dependencies>
 
