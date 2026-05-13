@@ -2,11 +2,7 @@ package com.zoopick.server.service;
 
 import com.zoopick.server.config.FastApiProperties;
 import com.zoopick.server.dto.cctv.*;
-import com.zoopick.server.entity.CctvDetection;
-import com.zoopick.server.entity.CctvVideo;
-import com.zoopick.server.entity.CctvVideoProgress;
-import com.zoopick.server.entity.Room;
-import com.zoopick.server.entity.VideoAnalysisStatus;
+import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
 import com.zoopick.server.exception.DataNotFoundException;
 import com.zoopick.server.repository.CctvDetectionRepository;
@@ -23,6 +19,7 @@ import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -236,5 +233,43 @@ public class CctvService {
     }
 
     public record DetectionRegisterResult(boolean duplicate, Long detectionDbId) {
+    }
+
+    @Transactional(readOnly = true)
+    public List<GetCctvVideoResponse> getCctvVideos() {
+        return cctvVideoRepository.findAllCctvVideosWithProgress();
+    }
+
+    @Transactional(readOnly = true)
+    public List<GetAllDetectionResponse> getAllCctvDetection() {
+        return cctvDetectionRepository.findAllByOrderByDetectedAtDesc().stream()
+                .map(entity -> new GetAllDetectionResponse(
+                        entity.getId(),
+                        entity.getDetectedAt(),
+                        entity.getDetectedCategory(),
+                        entity.getDetectedColor(),
+                        entity.getReviewStatus()
+                ))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public GetDetectionByIdResponse getCctvDetectionById(Long detectionId) {
+        CctvDetection entity = cctvDetectionRepository.findById(detectionId)
+                .orElseThrow(() -> DataNotFoundException.from("CCTV 물품 정보", detectionId));
+
+        return new GetDetectionByIdResponse(
+                entity.getId(),
+                entity.getCctvVideo().getId(),
+                entity.getDetectedAt(),
+                entity.getDetectedCategory(),
+                entity.getDetectedColor(),
+                entity.getEmbedding(),
+                entity.getItemSnapshotUrl(),
+                entity.getMomentSnapshotUrl(),
+                entity.getReviewStatus(),
+                entity.getReviewedAt(),
+                entity.getCreatedAt()
+        );
     }
 }

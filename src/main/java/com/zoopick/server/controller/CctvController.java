@@ -1,8 +1,7 @@
 package com.zoopick.server.controller;
 
-import com.zoopick.server.dto.cctv.CctvEnqueueResponse;
-import com.zoopick.server.dto.cctv.CctvVideoCreateRequest;
-import com.zoopick.server.dto.cctv.CctvVideoCreateResponse;
+import com.zoopick.server.dto.CommonResponse;
+import com.zoopick.server.dto.cctv.*;
 import com.zoopick.server.service.CctvService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -12,6 +11,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "CCTV API", description = "CCTV 영상 등록 및 분석 큐 관리")
 @RestController
@@ -57,5 +58,52 @@ public class CctvController {
     public ResponseEntity<CctvEnqueueResponse> enqueueVideo(@PathVariable Long videoId) {
         CctvEnqueueResponse response = cctvService.enqueueVideo(videoId);
         return ResponseEntity.accepted().body(response);
+    }
+
+    @Operation(
+            summary = "CCTV 분석 결과 전체 조회",
+            description = """
+            관리자가 CCTV 분석 결과를 조회합니다.
+            """
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "성공")
+    })
+    @GetMapping("/videos")
+    public ResponseEntity<CommonResponse<List<GetCctvVideoResponse>>> getVideos() {
+        List<GetCctvVideoResponse> response = cctvService.getCctvVideos();
+        return ResponseEntity.ok(CommonResponse.success(response));
+    }
+
+    @Operation(
+            summary = "CCTV 분석 물품 전체 조회",
+            description = """
+            관리자가 CCTV 분석 물품 리스트를 조회합니다.
+            """
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "성공")
+    })
+    @GetMapping("/detections")
+    public ResponseEntity<CommonResponse<List<GetAllDetectionResponse>>> getAllDetection() {
+        List<GetAllDetectionResponse> response = cctvService.getAllCctvDetection();
+        return ResponseEntity.ok(CommonResponse.success(response));
+    }
+
+    @Operation(
+            summary = "CCTV 분석 물품 상세 조회",
+            description = """
+            관리자가 CCTV 분석 물품을 상세 조회합니다.
+            embedding은 조회하지 않습니다.
+            """
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "성공"),
+            @ApiResponse(responseCode = "404", description = "물품을 찾을 수 없음")
+    })
+    @GetMapping("/detections/{id}")
+    public ResponseEntity<CommonResponse<GetDetectionByIdResponse>> getDetection(@PathVariable Long id) {
+        GetDetectionByIdResponse response = cctvService.getCctvDetectionById(id);
+        return ResponseEntity.ok(CommonResponse.success(response));
     }
 }
