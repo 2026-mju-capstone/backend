@@ -25,6 +25,8 @@ public class ItemPostRecord {
     private ItemCategory category;
     private String name;
     private ItemColor color;
+    @JsonProperty("reporter_id")
+    private long reporterId;
     @JsonProperty("image_url")
     private String imageUrl;
     @JsonProperty("building_id")

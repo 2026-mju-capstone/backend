@@ -14,6 +14,7 @@ import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketHandler;
 import org.springframework.web.socket.server.HandshakeInterceptor;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.Map;
 import java.util.Optional;
@@ -79,6 +80,14 @@ public class AuthHandshakeInterceptor implements HandshakeInterceptor {
     }
 
     private Optional<String> extractAccessToken(ServerHttpRequest request) {
+        String tokenFromQueryParam = UriComponentsBuilder.fromUri(request.getURI())
+                .build()
+                .getQueryParams()
+                .getFirst("token");
+        if (tokenFromQueryParam != null && !tokenFromQueryParam.isBlank()) {
+            return Optional.of(tokenFromQueryParam);
+        }
+
         String authorization = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return Optional.empty();

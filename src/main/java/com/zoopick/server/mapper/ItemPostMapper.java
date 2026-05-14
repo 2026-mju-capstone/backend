@@ -20,6 +20,7 @@ public class ItemPostMapper {
                 .status(itemPost.getItem().getStatus())
                 .category(itemPost.getItem().getCategory())
                 .color(itemPost.getItem().getColor())
+                .reporterId(itemPost.getUser().getId())
                 .imageUrl(itemPost.getItem().getImageUrl())
                 .buildingId(itemPost.getItem().getReportedBuilding().getId())
                 .detailAddress(itemPost.getItem().getLocationName())
