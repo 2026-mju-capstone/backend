@@ -1,86 +1,108 @@
 # Zoopick Server
 
-Zoopick은 유실물 관리 및 매칭 서비스를 위한 백엔드 서버입니다. AI 이미지 분석, 스마트 사물함 연동, 실시간 채팅 등의 기능을 통해 유실물을 빠르고 안전하게 찾을 수 있도록 돕습니다.
+Zoopick은 AI 기반의 유실물 관리 및 매칭 시스템입니다. 
+CCTV 영상을 분석하여 분실물을 자동으로 감지하고, 유저가 등록한 분실물 게시글과 매칭하여 스마트 사물함을 통해 안전하게 물품을 찾을 수 있도록 돕는 통합 솔루션입니다.
+
+---
+
+## 목차
+- [주요 기능](#-주요-기능)
+- [기술 스택](#-기술-스택)
+- [시스템 아키텍처](#-시스템-아키텍처)
+- [사전 요구 사항](#-사전-요구-사항)
+- [설치 및 설정](#-설치-및-설정)
+- [실행 방법](#-실행-방법)
+- [API 문서](#-api-문서)
+- [프로젝트 구조](#-프로젝트-구조)
 
 ---
 
 ## 주요 기능
 
-- **AI 유실물 매칭**: FastAPI 기반의 이미지 분석을 통해 유실물의 카테고리, 색상을 분류하고 벡터 임베딩을 활용한 정교한 매칭 시스템을 제공합니다.
-- **IOT 사물함 (IOT Locker)**: 비대면 유실물 전달을 위한 사물함 제어 및 상태 관리 시스템을 지원합니다.
-- **실시간 채팅**: 습득자와 분실자 간의 원활한 소통을 위한 WebSocket 기반 실시간 채팅 기능을 제공합니다.
-- **CCTV 및 위치 분석**: 유실물 발생 지역의 CCTV 영상 분석 요청 및 사용자 시간표 기반의 이동 동선 매칭 기능을 포함합니다.
-- **알림 서비스**: Firebase(FCM)를 통한 실시간 푸시 알림 및 이메일 인증 서비스를 제공합니다.
+- **AI 유실물 탐지**: CCTV 영상을 분석하여 물품의 종류, 색상 등을 추출하고 데이터베이스에 저장합니다.
+- **지능형 매칭 시스템**: 유저가 등록한 분실물 정보와 AI가 탐지한 물품 정보를 비교하여 가장 유사한 물품을 추천합니다. (Hibernate Vector 활용)
+- **IoT 스마트 사물함 연동**: 매칭된 물품을 스마트 사물함에 보관하고, QR 코드를 통해 비대면으로 물품을 수령할 수 있습니다.
+- **실시간 채팅 및 알림**: 습득자와 분실자 간의 실시간 채팅(WebSocket) 및 중요 이벤트 발생 시 푸시 알림(FCM)을 제공합니다.
+- **시간표 기반 위치 추정**: 유저의 시간표 데이터를 활용하여 분실 가능성이 높은 장소와 시간을 추정합니다.
 
 ---
 
-## Tech Stack
+## 🛠 기술 스택
 
-- **Framework**: Spring Boot 4.0.5 (Java 17)
-- **Database**: PostgreSQL (with Hibernate Vector for similarity search)
-- **Caching/Queue**: Redis (Email Auth, Session etc.)
+### Backend
+- **Framework**: Spring Boot 3.4.1 (Java 17)
+- **Database**: PostgreSQL (Hibernate Vector 지원)
+- **Caching/Queue**: Redis (인증번호 관리, 실시간 알림 큐 등)
 - **Security**: Spring Security, JWT (JSON Web Token)
-- **Messaging**: WebSocket, Firebase Cloud Messaging (FCM)
-- **API Documentation**: Springdoc OpenAPI (Swagger UI)
-- **AI Integration**: FastAPI (External Image Analysis Service)
+- **Messaging**: WebSocket (STOMP), Firebase Cloud Messaging (FCM)
+- **Documentation**: Springdoc OpenAPI (Swagger UI)
+
+### AI & IoT (External)
+- **AI Server**: FastAPI (YOLO 및 임베딩 추출 모델)
+- **IoT**: ESP32 기반 스마트 사물함 제어
+
+---
+
+## 시스템 
+```mermaid
+graph TD
+    User[Mobile App] <--> Backend[Spring Boot Server]
+    Backend <--> DB[(PostgreSQL + Vector)]
+    Backend <--> Redis[(Redis)]
+    Backend <--> FastAPI[AI Server]
+    Backend <--> FCM[Firebase Cloud Messaging]
+    Backend <--> Locker[Smart Locker]
+    CCTV[CCTV Camera] --> Backend
+```
 
 ---
 
 ## 사전 요구 사항
 
 - **Java 17** 이상
-- **PostgreSQL 18.3** (또는 호환 버전)
-- **Redis 3.0.504** 이상
-- **Firebase Admin SDK** 서비스 계정 키 (.json)
+- **PostgreSQL 16** 이상 (Vector 확장팩 설치 권장)
+- **Redis**
+- **Firebase Admin SDK** 서비스 계정 키 (.json 파일)
 
 ---
 
-## 환경 변수 설정
+## 설치 및 설정
 
-프로젝트 루트에 `.env` 파일을 생성하거나 환경 변수를 설정해 주세요.
+### 1. 환경 변수 설정
+프로젝트 루트에 `.env` 파일을 생성하고 아래 내용을 설정합니다.
 
-```bash
-# 필수 설정 (Mandatory)
+```properties
+# Database 설정
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/zoopick
 SPRING_DATASOURCE_USERNAME=your_username
 SPRING_DATASOURCE_PASSWORD=your_password
-SPRING_MAIL_USERNAME=example@gmail.com
-SPRING_MAIL_PASSWORD=your_app_password
-FIREBASE_ACCOUNT_KEY_PATH=/path/to/firebase-adminsdk.json -> Firebase Admin SDK 서비스 계정 키 필수 
-JWT_SECRET=your_secret_key_at_least_32_bytes
 
-# 선택 설정 (Optional)
-# default: jdbc:postgresql://localhost:5432/zoopick
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/zoopick
-# default: false
-SPRING_JPA_SHOW_SQL=false
+# Mail 설정 (인증용)
+SPRING_MAIL_USERNAME=your_email@gmail.com
+SPRING_MAIL_PASSWORD=your_app_password
+
+# Security 설정
+JWT_SECRET=your_jwt_secret_key_at_least_32_characters
+
+# 외부 연동 설정
+FIREBASE_ACCOUNT_KEY_PATH=path/to/firebase-adminsdk.json
+FASTAPI_BASE_URL=http://your-ai-server-url
 ```
 
----
-
-## 데이터베이스 세팅 및 복원
-
-### 1. DB 초기 복원 (Restore)
-`zoopick_dump.sql` 파일을 이용하여 스키마와 초기 시드 데이터를 세팅할 수 있습니다.
+### 2. 데이터베이스 초기화
+제공된 `zoopick_dump.sql` 파일을 사용하여 데이터베이스를 초기화할 수 있습니다.
 
 ```bash
-# 1. zoopick 데이터베이스 생성
-createdb -U postgres zoopick 
+# 데이터베이스 생성
+createdb -U postgres zoopick
 
-# 2. 덤프 파일을 이용하여 데이터 복원
+# 덤프 파일 복구
 psql -U postgres -d zoopick -f zoopick_dump.sql
 ```
 
-> **주의**: 인코딩 오류 방지를 위해 UTF-8 환경에서 수행하는 것을 권장합니다.
-
-### 2. Redis 서버 실행
-이메일 인증 및 휘발성 데이터 처리를 위해 Redis가 실행 중이어야 합니다. (기본 포트: 6379)
-```bash
-redis-cli ping  # PONG 응답 확인
-```
-
 ---
 
-## 빌드 및 실행
+## 실행 방법
 
 ### 빌드
 ```bash
@@ -89,31 +111,28 @@ redis-cli ping  # PONG 응답 확인
 
 ### 실행
 ```bash
-cd target
-java -jar zoopick-server-0.0.1.jar
+java -jar target/zoopick-server-0.0.1.jar
 ```
 
 ---
 
-## API 문서 (Swagger)
+## API 문서
 
-서버 실행 후 아래 주소에서 API 명세를 확인할 수 있습니다.
-- **Swagger UI**: `http://localhost:8080/swagger-ui.html`
-
-
-
+서버 실행 후 브라우저에서 아래 주소로 접속하여 API 명세를 확인할 수 있습니다.
+- **Swagger UI**: `http://localhost:8080/swagger-ui/index.html`
 
 ---
 
-## 📁 프로젝트 구조
+## 프로젝트 구조
 
 ```text
 src/main/java/com/zoopick/server/
-├── config/          # 설정 클래스 (Security, Redis, Swagger 등)
-├── controller/      # API 컨트롤러 계층
+├── config/          # 애플리케이션 설정 (Security, Redis, Swagger 등)
+├── controller/      # API 엔드포인트
 ├── dto/             # 데이터 전송 객체
-├── entity/          # JPA 엔티티 계층
-├── repository/      # 데이터 저장소 계층 (Spring Data JPA)
-├── service/         # 비즈니스 로직 계층
-└── websocket/       # 실시간 채팅 및 WebSocket 처리
+├── entity/          # JPA 엔티티 (DB 모델)
+├── repository/      # 데이터 액세스 계층 (Spring Data JPA)
+├── service/         # 비즈니스 로직
+├── websocket/       # 실시간 채팅 관련 로직
+└── ZoopickApplication.java  # 메인 애플리케이션 클래스
 ```
