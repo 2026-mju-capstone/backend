@@ -5,6 +5,9 @@ import lombok.*;
 import org.hibernate.annotations.Array;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
@@ -15,6 +18,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EntityListeners(AuditingEntityListener.class)
 public class Item {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -70,10 +74,10 @@ public class Item {
     private String imageUrl;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @CreatedDate
+    private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
-    @Builder.Default
-    private LocalDateTime updatedAt = LocalDateTime.now();
+    @LastModifiedDate
+    private LocalDateTime updatedAt;
 }

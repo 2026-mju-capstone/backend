@@ -15,7 +15,6 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-
 @Repository
 public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
 
@@ -31,19 +30,20 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
             i.id AS itemId,
             1 - (i.embedding <=> CAST(:embedding AS vector)) AS score
         FROM zoopick.items i
-        WHERE i.category = CAST(:category AS item_category)
-          AND i.color = CAST(:color AS item_color)
-          AND i.type <> CAST(:excludeType AS item_type)
+        WHERE i.type <> CAST(:excludeType AS item_type)
+          AND i.reporter_id <> :reporterId
           AND i.returned_at IS NULL
+          AND i.category = CAST(:category AS item_category)
         ORDER BY i.embedding <=> CAST(:embedding AS vector)
         LIMIT 100
     ) t
     WHERE t.score >= :threshold
+        LIMIT 30
     """, nativeQuery = true)
     List<SimilarItemProjection> findSimilarItems(@Param("embedding") Vector embedding,
                                                  @Param("excludeType") String excludeType,
                                                  @Param("category") String category,
-                                                 @Param("color") String color,
+                                                 @Param("reporterId") Long reporterId,
                                                  @Param("threshold") float threshold);
 
     // 중복 체크
@@ -88,5 +88,10 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
 
     // CONFIRMED된 매칭이 있는지 확인
     boolean existsByLostItemAndStatus(Item lostItem, MatchStatus status);
+
     boolean existsByFoundItemAndStatus(Item foundItem, MatchStatus status);
+
+    boolean existsByFoundItemAndLostItem_Reporter_IdAndStatus(Item foundItem, Long reporterId, MatchStatus status);
+
+    boolean existsByLostItemAndFoundItem_Reporter_IdAndStatus(Item lostItem, Long reporterId, MatchStatus status);
 }

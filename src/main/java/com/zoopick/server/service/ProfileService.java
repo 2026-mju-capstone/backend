@@ -39,6 +39,11 @@ public class ProfileService {
         );
     }
 
+    public String findNickname(long userId) {
+        User user = userRepository.findByIdOrThrow(userId);
+        return user.getNickname();
+    }
+
     @Transactional
     public void updateProfile(String email, ProfileUpdateRequest request) {
         User user = userRepository.findBySchoolEmailOrThrow(email);

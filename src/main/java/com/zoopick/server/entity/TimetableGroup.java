@@ -5,6 +5,9 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 @Entity
 @Table(name = "timetable_groups", schema = "zoopick")
 @Getter
@@ -12,6 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EntityListeners(AuditingEntityListener.class)
 public class TimetableGroup {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -35,6 +39,6 @@ public class TimetableGroup {
     private Boolean isPrimary = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @CreatedDate
+    private LocalDateTime createdAt;
 }

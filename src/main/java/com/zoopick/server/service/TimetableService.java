@@ -12,7 +12,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -73,34 +76,25 @@ public class TimetableService {
         List<Course> courses = timetables.stream()
                 .map(Timetable::getCourse)
                 .toList();
-        List<CourseSchedule> courseSchedules = courseScheduleRepository.findAllByCourseIn(courses);
-        return timetableRepository.findAllByTimetableGroup(group).stream()
+        
+        Map<Long, List<CourseSchedule>> scheduleMap = courseScheduleRepository.findAllByCourseIn(courses).stream()
+                .collect(Collectors.groupingBy(s -> s.getCourse().getId()));
+
+        return timetables.stream()
                 .map(t -> {
                     Course c = t.getCourse();
                     Room r = c.getRoom();
                     Building b = r.getBuilding();
+                    List<CourseSchedule> schedules = scheduleMap.getOrDefault(c.getId(), Collections.emptyList());
                     return new TimetableCourseRecord(
                             c.getId(), c.getCourseName(),
                             r.getName(), b.getName(), b.getCode(), t.getColor(),
-                            collectCourseScheduleRecord(c, courseSchedules)
+                            schedules.stream()
+                                    .map(s -> new TimetableCourseScheduleRecord(s.getDayOfWeek(), s.getStartTime(), s.getEndTime()))
+                                    .toList()
                     );
                 })
                 .collect(Collectors.toList());
-    }
-
-    private List<TimetableCourseScheduleRecord> collectCourseScheduleRecord(Course course, List<CourseSchedule> allCourseSchedules) {
-        return allCourseSchedules.stream()
-                .filter(schedule -> schedule.getCourse().getId().equals(course.getId()))
-                .map(schedule -> new TimetableCourseScheduleRecord(
-                        schedule.getDayOfWeek(), schedule.getStartTime(), schedule.getEndTime()
-                ))
-                .toList();
-    }
-
-    private List<CourseSchedule> filterCourseSchedules(Course course, List<CourseSchedule> allCourseSchedules) {
-        return allCourseSchedules.stream()
-                .filter(schedule -> schedule.getCourse().getId().equals(course.getId()))
-                .toList();
     }
 
     @Transactional
@@ -114,17 +108,23 @@ public class TimetableService {
         timetableRepository.flush();
 
         // 2. 새로운 강의 데이터 로드 및 중복 검증
-        List<Timetable> newTimetables = new ArrayList<>();
         List<Long> courseIds = request.courses().stream()
                 .map(TimetableSyncRequest.CourseColorRequest::courseId)
                 .toList();
-        List<CourseSchedule> schedules = courseScheduleRepository.findAllByCourseIdIn(courseIds);
+        
+        Map<Long, List<CourseSchedule>> scheduleMap = courseScheduleRepository.findAllByCourseIdIn(courseIds).stream()
+                .collect(Collectors.groupingBy(s -> s.getCourse().getId()));
+
+        Map<Long, Course> courseMap = courseRepository.findAllById(courseIds).stream()
+                .collect(Collectors.toMap(Course::getId, c -> c));
+
+        List<Timetable> newTimetables = new ArrayList<>();
         for (var req : request.courses()) {
-            Course course = courseRepository.findById(req.courseId())
+            Course course = Optional.ofNullable(courseMap.get(req.courseId()))
                     .orElseThrow(() -> DataNotFoundException.from("강의", req.courseId()));
 
             // 시간 중복 체크
-            validateOverlap(newTimetables, course, schedules);
+            validateOverlap(newTimetables, course, scheduleMap);
 
             newTimetables.add(Timetable.builder()
                     .course(course)
@@ -148,25 +148,31 @@ public class TimetableService {
 
     public Page<TimetableCourseRecord> searchCourses(Integer year, Integer semester, String keyword, Pageable pageable) {
         Page<Course> courses = courseRepository.searchCourses(year, semester, keyword, pageable);
-        List<CourseSchedule> schedules = courseScheduleRepository.findAllByCourseIn(courses.getContent());
+        
+        Map<Long, List<CourseSchedule>> scheduleMap = courseScheduleRepository.findAllByCourseIn(courses.getContent()).stream()
+                .collect(Collectors.groupingBy(s -> s.getCourse().getId()));
 
-        return courseRepository.searchCourses(year, semester, keyword, pageable)
-                .map(c -> {
-                    Room r = c.getRoom();
-                    Building b = r.getBuilding();
-                    return new TimetableCourseRecord(
-                            c.getId(), c.getCourseName(),
-                            r.getName(), b.getName(), b.getCode(), null,
-                            collectCourseScheduleRecord(c, schedules)
-                    );
-                });
+        return courses.map(c -> {
+            Room r = c.getRoom();
+            Building b = r.getBuilding();
+            List<CourseSchedule> schedules = scheduleMap.getOrDefault(c.getId(), Collections.emptyList());
+            return new TimetableCourseRecord(
+                    c.getId(), c.getCourseName(),
+                    r.getName(), b.getName(), b.getCode(), null,
+                    schedules.stream()
+                            .map(s -> new TimetableCourseScheduleRecord(s.getDayOfWeek(), s.getStartTime(), s.getEndTime()))
+                            .toList()
+            );
+        });
     }
 
-    public void validateOverlap(List<Timetable> existing, Course target, List<CourseSchedule> allCourseSchedules) {
+    private void validateOverlap(List<Timetable> existing, Course target, Map<Long, List<CourseSchedule>> scheduleMap) {
+        List<CourseSchedule> targetSchedules = scheduleMap.getOrDefault(target.getId(), Collections.emptyList());
+        
         for (Timetable t : existing) {
             Course c = t.getCourse();
-            List<CourseSchedule> comparingSchedules = filterCourseSchedules(c, allCourseSchedules);
-            List<CourseSchedule> targetSchedules = filterCourseSchedules(target, allCourseSchedules);
+            List<CourseSchedule> comparingSchedules = scheduleMap.getOrDefault(c.getId(), Collections.emptyList());
+            
             if (hasOverlap(comparingSchedules, targetSchedules)) {
                 String message = String.format("강의 시간이 겹칩니다: %s & %s", c.getCourseName(), target.getCourseName());
                 throw new BadRequestException(message, message);

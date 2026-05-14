@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\robot\\\\capstone2026\\\\backend\" -Recurse -File -Name)",
+      "Bash(grep -E \"\\\\.\\(yml|yaml|properties|java\\)$\")",
+      "Bash(xargs grep -l \"LockerReady\\\\|LockerPayload\")",
+      "Bash(xargs grep -l \"qr\\\\|QR\\\\|barcode\\\\|code.*generate\")",
+      "Bash(xargs grep -l \"Locker\")"
+    ]
+  }
+}

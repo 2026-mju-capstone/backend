@@ -5,6 +5,9 @@ import lombok.*;
 import org.hibernate.annotations.Array;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
 import java.time.LocalDateTime;
 
 
@@ -15,6 +18,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
+@EntityListeners(AuditingEntityListener.class)
 public class CctvDetection {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,6 +62,6 @@ public class CctvDetection {
     private LocalDateTime reviewedAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    @Builder.Default
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @CreatedDate
+    private LocalDateTime createdAt;
 }

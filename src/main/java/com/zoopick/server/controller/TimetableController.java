@@ -13,6 +13,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -89,7 +91,7 @@ public class TimetableController {
             @RequestParam Integer year,
             @RequestParam Integer semester,
             @RequestParam(required = false) String keyword,
-            Pageable pageable) {
+            @PageableDefault(sort = "courseName", direction = Sort.Direction.ASC) Pageable pageable) {
         return CommonResponse.success(timetableService.searchCourses(year, semester, keyword, pageable));
     }
 }

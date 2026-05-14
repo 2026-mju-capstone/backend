@@ -3,9 +3,8 @@ package com.zoopick.server.service;
 import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
 import com.zoopick.server.exception.DataNotFoundException;
-import com.zoopick.server.repository.ItemRepository;
-import com.zoopick.server.repository.LockerCommandRepository;
-import com.zoopick.server.repository.LockerRepository;
+import com.zoopick.server.exception.ForbiddenException;
+import com.zoopick.server.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,9 +21,13 @@ public class LockerService {
     private final LockerRepository lockerRepository;
     private final LockerCommandRepository commandRepository;
     private final ItemRepository itemRepository;
+    private final UserRepository userRepository;
+    private final ItemMatchRepository itemMatchRepository;
 
     @Transactional
-    public LockerCommand requestUnlock(Long lockerId, Long itemId) {
+    public LockerCommand requestUnlock(Long userId, Long lockerId, Long itemId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> DataNotFoundException.from("사용자", userId));
         Locker locker = lockerRepository.findById(lockerId)
                 .orElseThrow(() -> DataNotFoundException.from("사물함", lockerId));
 
@@ -37,15 +40,15 @@ public class LockerService {
         boolean isStorage = (locker.getCurrentItem() == null);
 
         if (isStorage) {
-            handleStorage(locker, itemId);
+            handleStorage(userId, locker, itemId);
         } else {
-            handleRetrieval(locker);
+            handleRetrieval(userId, locker);
         }
 
-        return enqueue(locker, LockerCommandType.OPEN);
+        return enqueue(user, locker, LockerCommandType.OPEN);
     }
 
-    private void handleStorage(Locker locker, Long itemId) {
+    private void handleStorage(Long userId, Locker locker, Long itemId) {
         if (itemId == null) {
             throw new BadRequestException(
                     "보관할 물품 정보가 필요합니다.",
@@ -54,6 +57,13 @@ public class LockerService {
 
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> DataNotFoundException.from("물품", itemId));
+
+        //본인이 신고한 습득물인지 확인
+        if (!item.getReporter().getId().equals(userId)) {
+            throw new ForbiddenException(
+                    "본인이 신고한 물품만 보관할 수 있습니다.",
+                    "User " + userId + " is not the reporter of item " + itemId);
+        }
 
         if (item.getType() != ItemType.FOUND) {
             throw new BadRequestException(
@@ -70,12 +80,24 @@ public class LockerService {
         locker.setCurrentItem(item);
         item.setStatus(ItemStatus.IN_LOCKER);
 
-        log.info("[STORE] locker_id={} item_id={} 보관 요청",
-                locker.getId(), itemId);
+        log.info("[STORE] locker_id={} item_id={} user_id={} 보관 요청",
+                locker.getId(), itemId, userId);
     }
 
-    private void handleRetrieval(Locker locker) {
+    private void handleRetrieval(Long userId, Locker locker) {
         Item stored = locker.getCurrentItem();
+
+        //권한 확인: 신고자 본인이거나, CONFIRMED 매칭된 소유자여야 함
+        boolean isReporter = stored.getReporter().getId().equals(userId);
+        boolean isMatchedOwner = itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(
+                stored, userId, MatchStatus.CONFIRMED);
+
+        if (!isReporter && !isMatchedOwner) {
+            throw new ForbiddenException(
+                    "물품을 회수할 권한이 없습니다.",
+                    "User " + userId + " has no permission to retrieve item " + stored.getId());
+        }
+
         LocalDateTime now = LocalDateTime.now();
 
         locker.setStatus(LockerStatus.EMPTY);
@@ -83,22 +105,36 @@ public class LockerService {
         stored.setStatus(ItemStatus.RETURNED);
         stored.setReturnedAt(now);
 
-        log.info("[RETRIEVE] locker_id={} item_id={} 회수 요청",
-                locker.getId(), stored.getId());
+        log.info("[RETRIEVE] locker_id={} item_id={} user_id={} 회수 요청",
+                locker.getId(), stored.getId(), userId);
     }
 
     @Transactional
-    public LockerCommand requestLock(Long lockerId) {
+    public LockerCommand requestLock(Long userId, Long lockerId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> DataNotFoundException.from("사용자", userId));
         Locker locker = lockerRepository.findById(lockerId)
                 .orElseThrow(() -> DataNotFoundException.from("사물함", lockerId));
-        log.info("[CLOSE] locker_id={} 잠금 요청", lockerId);
-        return enqueue(locker, LockerCommandType.CLOSE);
+
+        //잠금 권한 확인: 가장 최근에 이 사물함을 연(OPEN) 사람만 잠글 수 있음
+        commandRepository.findFirstByLocker_IdAndCommandOrderByCreatedAtDesc(lockerId, LockerCommandType.OPEN)
+                .ifPresent(lastOpenCmd -> {
+                    if (!lastOpenCmd.getIssuedBy().getId().equals(userId)) {
+                        throw new ForbiddenException(
+                                "사물함을 잠글 권한이 없습니다 (열었던 사용자만 가능).",
+                                "User " + userId + " is not the issuer of the last OPEN command");
+                    }
+                });
+
+        log.info("[CLOSE] locker_id={} user_id={} 잠금 요청", lockerId, userId);
+        return enqueue(user, locker, LockerCommandType.CLOSE);
     }
 
-    private LockerCommand enqueue(Locker locker, LockerCommandType type) {
+    private LockerCommand enqueue(User user, Locker locker, LockerCommandType type) {
         return commandRepository.save(LockerCommand.builder()
                 .locker(locker)
                 .command(type)
+                .issuedBy(user)
                 .status(LockerCommandStatus.PENDING)
                 .createdAt(LocalDateTime.now())
                 .build());
