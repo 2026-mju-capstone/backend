@@ -1,6 +1,5 @@
 package com.zoopick.server.controller;
 
-import com.google.firebase.messaging.FirebaseMessagingException;
 import com.zoopick.server.dto.CommonResponse;
 import com.zoopick.server.dto.chat.*;
 import com.zoopick.server.security.UserPrincipal;
@@ -74,6 +73,24 @@ public class ChatRoomController {
         return ResponseEntity.status(httpStatue).body(CommonResponse.success(result));
     }
 
+    @Operation(summary = "소유자 기준 채팅방 생성", description = "QR 스캔 등으로 전달받은 소유자 사용자 ID를 기준으로 채팅방을 생성하거나 기존 채팅방을 반환합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "기존 채팅방"),
+            @ApiResponse(responseCode = "201", description = "채팅방 생성 성공"),
+            @ApiResponse(responseCode = "400", description = "잘못된 요청값"),
+            @ApiResponse(responseCode = "401", description = "인증 필요"),
+            @ApiResponse(responseCode = "404", description = "상대 사용자를 찾을 수 없음")
+    })
+    @PostMapping("/by-owner")
+    public ResponseEntity<CommonResponse<CreateChatRoomResult>> createChatRoomByOwner(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestBody @Valid CreateChatRoomByOwnerRequest request
+    ) {
+        CreateChatRoomResult result = chatRoomService.createChatRoomByOwner(principal.id(), request.getOwnerId());
+        HttpStatusCode httpStatue = result.isCreated() ? HttpStatus.CREATED : HttpStatus.OK;
+        return ResponseEntity.status(httpStatue).body(CommonResponse.success(result));
+    }
+
     @Operation(summary = "채팅방 단건 조회", description = "채팅방 ID로 채팅방 상세 정보를 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "채팅방 조회 성공"),
@@ -123,7 +140,7 @@ public class ChatRoomController {
             @Parameter(description = "메시지를 전송할 채팅방 ID", example = "1")
             @PathVariable long roomId,
             @RequestBody @Valid SendMessageRequest sendMessageRequest
-    ) throws FirebaseMessagingException {
+    ) {
         chatRoomService.sendMessageWithNotification(principal.id(), roomId, sendMessageRequest.getMessage());
         return ResponseEntity.ok(CommonResponse.success("done"));
     }
@@ -142,7 +159,7 @@ public class ChatRoomController {
             @Parameter(description = "종료할 채팅방 ID", example = "1")
             @PathVariable long roomId,
             @RequestBody @Valid CloseChatRoomRequest closeChatRoomRequest
-    ) throws FirebaseMessagingException {
+    ) {
         chatRoomService.closeChatRoom(principal.id(), roomId, closeChatRoomRequest.getReason());
         return ResponseEntity.ok(CommonResponse.success("성공"));
     }
@@ -160,7 +177,7 @@ public class ChatRoomController {
             @AuthenticationPrincipal UserPrincipal principal,
             @Parameter(description = "재개할 채팅방 ID", example = "1")
             @PathVariable long roomId
-    ) throws FirebaseMessagingException {
+    ) {
         chatRoomService.reopenChatRoom(principal.id(), roomId);
         return ResponseEntity.ok(CommonResponse.success("성공"));
     }
