@@ -70,8 +70,6 @@ class NotificationServiceTest {
         NotificationPayload payloadMock = mock(NotificationPayload.class);
         given(payloadMock.toMap()).willReturn(Map.of());
 
-        // ✅ 해결 부분: NotificationType에 정의된 첫 번째 값을 동적으로 가져와 반환합니다.
-        // 이렇게 하면 정확한 이름을 몰라도 NullPointerException과 심볼 오류를 모두 피할 수 있습니다.
         given(payloadMock.type()).willReturn(NotificationType.values()[0]);
 
         SendNotificationCommand command = new SendNotificationCommand("제목", "내용", payloadMock);
