@@ -310,7 +310,8 @@ ALTER SEQUENCE zoopick.buildings_id_seq OWNED BY zoopick.buildings.id;
 CREATE TABLE zoopick.cctv_detection_matches (
                                                 id bigint NOT NULL,
                                                 detection_id bigint NOT NULL,
-                                                item_id bigint NOT NULL
+                                                item_id bigint NOT NULL,
+                                                score real NOT NULL
 );
 
 
@@ -1081,7 +1082,7 @@ COPY zoopick.buildings (id, name, code, latitude, longitude) FROM stdin;
 -- Data for Name: cctv_detection_matches; Type: TABLE DATA; Schema: zoopick; Owner: postgres
 --
 
-COPY zoopick.cctv_detection_matches (id, detection_id, item_id) FROM stdin;
+COPY zoopick.cctv_detection_matches (id, detection_id, item_id, score) FROM stdin;
 \.
 
 
