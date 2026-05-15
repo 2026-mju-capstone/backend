@@ -228,6 +228,7 @@ ALTER TYPE zoopick.match_status OWNER TO postgres;
 
 CREATE TYPE zoopick.notification_type AS ENUM (
     'MATCH_FOUND',
+    'CCTV_FOUND',
     'CHAT_MESSAGE',
     'ITEM_RETURNED',
     'THEFT_SUSPECTED',

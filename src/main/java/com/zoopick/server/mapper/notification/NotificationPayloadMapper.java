@@ -20,7 +20,8 @@ public class NotificationPayloadMapper {
             NotificationType.ITEM_RETURNED, ItemReturnedPayload.class,
             NotificationType.LOCKER_READY, LockerReadyPayload.class,
             NotificationType.THEFT_SUSPECTED, TheftSuspectedPayload.class,
-            NotificationType.MATCH_FOUND, MatchFoundPayload.class
+            NotificationType.MATCH_FOUND, MatchFoundPayload.class,
+            NotificationType.CCTV_FOUND, CctvFoundPayload.class
     );
 
     private final ObjectMapper objectMapper;

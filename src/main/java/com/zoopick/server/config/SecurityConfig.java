@@ -36,12 +36,13 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/", "/Login", "/join").permitAll()
                 .requestMatchers(HttpMethod.GET, "/images/**").permitAll()
-
+                .requestMatchers("/**").permitAll()
                 // Vision 및 CCTV API 허용 (테스트용)
                 .requestMatchers("/api/vision/**", "/api/cctv/**", "/api/internal/**").permitAll()
                 .requestMatchers("/cctv-admin.html").permitAll()
                 .requestMatchers("/storage/**").permitAll()
                 .requestMatchers("/api/cctv/upload").permitAll()
+
                 // IoT 디바이스(아두이노) 전용 엔드포인트 허용
                 .requestMatchers(HttpMethod.GET, "/api/lockers/*/pending").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/lockers/*/commands/*/ack").permitAll()

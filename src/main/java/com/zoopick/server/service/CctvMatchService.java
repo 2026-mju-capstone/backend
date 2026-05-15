@@ -1,15 +1,19 @@
 package com.zoopick.server.service;
 
+import com.zoopick.server.dto.match.CreateCctvMatchEvent;
 import com.zoopick.server.dto.match.SimilarItemResult;
 import com.zoopick.server.entity.CctvDetection;
 import com.zoopick.server.entity.CctvDetectionMatch;
 import com.zoopick.server.entity.Item;
+import com.zoopick.server.entity.ItemPost;
 import com.zoopick.server.repository.CctvDetectionMatchRepository;
 import com.zoopick.server.repository.CctvDetectionRepository;
+import com.zoopick.server.repository.ItemPostRepository;
 import com.zoopick.server.repository.ItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Vector;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -26,6 +30,8 @@ public class CctvMatchService {
     private final CctvDetectionRepository cctvDetectionRepository;
     private final CctvDetectionMatchRepository cctvDetectionMatchRepository;
     private final ItemRepository itemRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    private final ItemPostRepository itemPostRepository;
     @Value("${zoopick.similarity.threshold}")
     private float similarityThreshold;
 
@@ -46,14 +52,21 @@ public class CctvMatchService {
             log.warn("[CCTV] 매칭된 아이템이 없습니다.");
             return;
         }
-        Map<Long, Item> itemMap = itemRepository.findAllById(
-                        similarItems.stream().map(SimilarItemResult::getItemId).toList())
+        List<Long> itemIds = similarItems.stream()
+                .map(SimilarItemResult::getItemId)
+                .toList();
+
+        Map<Long, ItemPost> itemPostMap = itemPostRepository.findAllByItemIdsWithItem(itemIds)
                 .stream()
-                .collect(Collectors.toMap(Item::getId, i -> i));
+                .collect(Collectors.toMap(
+                        post -> post.getItem().getId(), // Key: Item의 ID
+                        post -> post                   // Value: ItemPost 객체 (안에 Item이 들어있음)
+                ));
 
         for (SimilarItemResult s : similarItems) {
             // 중복 저장 방지
-            Item foundItemInDb = itemMap.get(s.getItemId());
+            ItemPost itemPost = itemPostMap.get(s.getItemId());
+            Item foundItemInDb = itemPost.getItem();
             if (!cctvDetectionMatchRepository.existsByCctvDetectionAndItem(cctvDetection, foundItemInDb)) {
                 CctvDetectionMatch savedMatch = cctvDetectionMatchRepository.save(CctvDetectionMatch.builder()
                         .score((float) s.getScore())
@@ -62,6 +75,7 @@ public class CctvMatchService {
                         .build());
                 log.info("CCTV 매칭된 아이템 ID: {}", foundItemInDb.getId());
                 //TODO: 이벤트 퍼블리싱으로 FCM 보내기
+                eventPublisher.publishEvent(new CreateCctvMatchEvent(foundItemInDb, savedMatch, cctvDetection, itemPost));
             }
         }
         log.info("[CCTV] 매칭 종료 ID: {}", detectionId);
@@ -71,6 +85,8 @@ public class CctvMatchService {
     public void matchLostItemsToCctv(Long lostItemId) {
         log.info("[CCTV] 매칭 시작 ID: {}", lostItemId);
         Item lostItem = itemRepository.findByIdOrThrow(lostItemId);
+        ItemPost lostItemPost = itemPostRepository.findByItem(lostItem);
+
         Vector embedding = Vector.of(lostItem.getEmbedding());
         List<SimilarItemResult> similarItems = cctvDetectionMatchRepository.findDetections(
                         embedding,
@@ -104,6 +120,7 @@ public class CctvMatchService {
                         .build());
                 log.info("[CCTV] 매칭된 Detection ID: {}", foundItemInDb.getId());
                 //TODO: 이벤트 퍼블리싱으로 FCM 보내기
+                eventPublisher.publishEvent(new CreateCctvMatchEvent(lostItem, savedMatch, foundItemInDb, lostItemPost));
             }
         }
         log.info("[CCTV] 매칭 종료 ID: {}", lostItemId);

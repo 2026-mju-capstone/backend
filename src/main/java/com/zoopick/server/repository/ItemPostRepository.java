@@ -7,7 +7,11 @@ import jakarta.persistence.criteria.Join;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.util.List;
 
 @Repository
 public interface ItemPostRepository extends JpaRepository<ItemPost, Long>, JpaSpecificationExecutor<ItemPost> {
@@ -52,4 +56,7 @@ public interface ItemPostRepository extends JpaRepository<ItemPost, Long>, JpaSp
 
     long countByUserId(Long userId);
     ItemPost findByItem(Item item);
+
+    @Query("SELECT ip FROM ItemPost ip JOIN FETCH ip.item WHERE ip.item.id IN :itemIds")
+    List<ItemPost> findAllByItemIdsWithItem(@Param("itemIds") List<Long> itemIds);
 }
