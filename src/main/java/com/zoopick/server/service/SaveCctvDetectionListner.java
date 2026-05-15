@@ -1,7 +1,7 @@
 package com.zoopick.server.service;
 
-import com.zoopick.server.dto.item.ItemCreatedEvent;
-import com.zoopick.server.entity.ItemType;
+
+import com.zoopick.server.dto.match.SaveCctvDetectionEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -12,16 +12,12 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class ItemPostEventListner {
-    private final VisionService visionService;
+public class SaveCctvDetectionListner {
     private final CctvMatchService cctvMatchService;
 
     @Async
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleItemCreated(ItemCreatedEvent event) {
-        visionService.analyzeImage(event.itemId()); //이미지 분석 실행
-
-        if (event.itemType() == ItemType.LOST) // ItemType이 Lost인 경우 cctv 분석 실행
-            cctvMatchService.matchLostItemsToCctv(event.itemId());
+    public void handleMatchCctvToLostItems(SaveCctvDetectionEvent event) {
+        cctvMatchService.matchCctvToLostItems(event.detectionId());
     }
 }

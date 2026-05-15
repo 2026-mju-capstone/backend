@@ -2,6 +2,7 @@ package com.zoopick.server.service;
 
 import com.zoopick.server.config.FastApiProperties;
 import com.zoopick.server.dto.cctv.*;
+import com.zoopick.server.dto.match.SaveCctvDetectionEvent;
 import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
 import com.zoopick.server.exception.DataNotFoundException;
@@ -12,6 +13,7 @@ import com.zoopick.server.repository.RoomRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +42,7 @@ public class CctvService {
     private final StringRedisTemplate stringRedisTemplate;
     private final RestClient fastApiRestClient;
     private final FastApiProperties fastApiProperties;
-
+    private final ApplicationEventPublisher eventPublisher;
     @Value("${zoopick.callback-url}")
     private String callbackBaseUrl;
 
@@ -199,6 +201,7 @@ public class CctvService {
             CctvDetection savedDetection = cctvDetectionRepository.save(detection);
             log.info("New detection registered: video_id={}, ai_detection_id={}",
                     callback.getVideoId(), callback.getDetectionId());
+            eventPublisher.publishEvent(new SaveCctvDetectionEvent(savedDetection.getId()));
             return new DetectionRegisterResult(false, savedDetection.getId());
         } catch (RuntimeException e) {
             stringRedisTemplate.delete(idempotencyKey);
