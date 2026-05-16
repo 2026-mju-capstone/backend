@@ -1,3 +1,6 @@
 package com.zoopick.server.dto.match;
 
-public record CreateMatchEvent(Long matchId, Long lostItemId, Long foundItemId) {}
+import com.zoopick.server.entity.Item;
+import com.zoopick.server.entity.ItemMatch;
+
+public record CreateMatchEvent(ItemMatch match, Item lostItem, Item foundItem) {}

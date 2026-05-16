@@ -80,4 +80,8 @@ public class Item {
     @Column(name = "updated_at")
     @LastModifiedDate
     private LocalDateTime updatedAt;
+
+    public void theftSuspected(LocalDateTime suspectedAt) {
+        this.theftSuspectedAt = suspectedAt;
+    }
 }

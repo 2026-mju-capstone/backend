@@ -52,15 +52,6 @@ public class CctvDetection {
     @Column(name = "moment_snapshot_url", length = 500)
     private String momentSnapshotUrl;
 
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "review_status", columnDefinition = "detection_review_status")
-    @Builder.Default
-    private DetectionReviewStatus reviewStatus = DetectionReviewStatus.PENDING;
-
-    @Column(name = "reviewed_at")
-    private LocalDateTime reviewedAt;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreatedDate
     private LocalDateTime createdAt;

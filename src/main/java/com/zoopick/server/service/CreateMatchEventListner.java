@@ -4,9 +4,7 @@ import com.zoopick.server.dto.match.CreateMatchEvent;
 import com.zoopick.server.entity.Item;
 import com.zoopick.server.entity.ItemMatch;
 import com.zoopick.server.entity.MatchStatus;
-import com.zoopick.server.repository.ItemMatchRepository;
 import com.zoopick.server.repository.ItemPostRepository;
-import com.zoopick.server.repository.ItemRepository;
 import com.zoopick.server.service.notification.NotificationService;
 import com.zoopick.server.service.notification.SendNotificationCommand;
 import com.zoopick.server.service.notification.payload.MatchFoundPayload;
@@ -23,16 +21,14 @@ import org.springframework.transaction.event.TransactionalEventListener;
 @Slf4j
 public class CreateMatchEventListner {
     private final NotificationService notificationService;
-    private final ItemMatchRepository itemMatchRepository;
     private final ItemPostRepository itemPostRepository;
-    private final ItemRepository itemRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMatchCreated(CreateMatchEvent event) {
-        ItemMatch match = itemMatchRepository.findByIdOrThrow(event.matchId());
-        Item lostItem = itemRepository.findByIdOrThrow(event.lostItemId());
-        Item foundItem = itemRepository.findByIdOrThrow(event.foundItemId());
+        ItemMatch match = event.match();
+        Item lostItem = event.lostItem();
+        Item foundItem = event.foundItem();
         String title = itemPostRepository.findByItem(lostItem).getTitle();
         String location = foundItem.getLocationName();
         notificationService.send(lostItem.getReporter(), new SendNotificationCommand(

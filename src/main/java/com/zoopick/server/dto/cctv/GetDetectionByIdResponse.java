@@ -2,7 +2,6 @@ package com.zoopick.server.dto.cctv;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.zoopick.server.entity.DetectionReviewStatus;
 import com.zoopick.server.entity.ItemCategory;
 import com.zoopick.server.entity.ItemColor;
 import lombok.AllArgsConstructor;
@@ -30,10 +29,6 @@ public class GetDetectionByIdResponse {
     private String itemSnapshotUrl;
     @JsonProperty("moment_snapshot_url")
     private String momentSnapshotUrl;
-    @JsonProperty("review_status")
-    private DetectionReviewStatus reviewStatus = DetectionReviewStatus.PENDING;
-    @JsonProperty("reviewed_at")
-    private LocalDateTime reviewedAt;
     @JsonProperty("created_at")
     private LocalDateTime createdAt;
 

@@ -11,6 +11,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
@@ -23,7 +24,7 @@ public class VisionService {
     private final ItemRepository itemRepository;
     private final ItemMatchService itemMatchService;
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void analyzeImage(Long itemId) {
         log.info("전달된 아이템 ID: {}", itemId);
         Item item = itemRepository.findById(itemId).orElseThrow(() -> new EntityNotFoundException("아이템을 찾을 수 없습니다."));

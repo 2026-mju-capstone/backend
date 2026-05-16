@@ -228,6 +228,7 @@ ALTER TYPE zoopick.match_status OWNER TO postgres;
 
 CREATE TYPE zoopick.notification_type AS ENUM (
     'MATCH_FOUND',
+    'CCTV_FOUND',
     'CHAT_MESSAGE',
     'ITEM_RETURNED',
     'THEFT_SUSPECTED',
@@ -310,7 +311,10 @@ ALTER SEQUENCE zoopick.buildings_id_seq OWNED BY zoopick.buildings.id;
 CREATE TABLE zoopick.cctv_detection_matches (
                                                 id bigint NOT NULL,
                                                 detection_id bigint NOT NULL,
-                                                item_id bigint NOT NULL
+                                                item_id bigint NOT NULL,
+                                                score real NOT NULL,
+                                                review_status zoopick.detection_review_status DEFAULT 'PENDING'::zoopick.detection_review_status NOT NULL,
+                                                reviewed_at timestamp without time zone
 );
 
 
@@ -350,8 +354,6 @@ CREATE TABLE zoopick.cctv_detections (
                                          embedding zoopick.vector(512),
                                          item_snapshot_url character varying(500) NOT NULL,
                                          moment_snapshot_url character varying(500) NOT NULL,
-                                         review_status zoopick.detection_review_status DEFAULT 'PENDING'::zoopick.detection_review_status NOT NULL,
-                                         reviewed_at timestamp without time zone,
                                          created_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
@@ -1081,7 +1083,7 @@ COPY zoopick.buildings (id, name, code, latitude, longitude) FROM stdin;
 -- Data for Name: cctv_detection_matches; Type: TABLE DATA; Schema: zoopick; Owner: postgres
 --
 
-COPY zoopick.cctv_detection_matches (id, detection_id, item_id) FROM stdin;
+COPY zoopick.cctv_detection_matches (id, detection_id, item_id, score, review_status, reviewed_at) FROM stdin;
 \.
 
 
@@ -1089,7 +1091,7 @@ COPY zoopick.cctv_detection_matches (id, detection_id, item_id) FROM stdin;
 -- Data for Name: cctv_detections; Type: TABLE DATA; Schema: zoopick; Owner: postgres
 --
 
-COPY zoopick.cctv_detections (id, video_id, detected_at, detected_category, detected_color, embedding, item_snapshot_url, moment_snapshot_url, review_status, reviewed_at, created_at) FROM stdin;
+COPY zoopick.cctv_detections (id, video_id, detected_at, detected_category, detected_color, embedding, item_snapshot_url, moment_snapshot_url, created_at) FROM stdin;
 \.
 
 
@@ -1729,10 +1731,10 @@ CREATE INDEX idx_courses_semester ON zoopick.courses USING btree (year, semester
 
 
 --
--- Name: idx_detections_pending; Type: INDEX; Schema: zoopick; Owner: postgres
+-- Name: idx_detection_matches_pending; Type: INDEX; Schema: zoopick; Owner: postgres
 --
 
-CREATE INDEX idx_detections_pending ON zoopick.cctv_detections USING btree (review_status) WHERE (review_status = 'PENDING'::zoopick.detection_review_status);
+CREATE INDEX idx_detection_matches_pending ON zoopick.cctv_detection_matches USING btree (review_status) WHERE (review_status = 'PENDING'::zoopick.detection_review_status);
 
 
 --
