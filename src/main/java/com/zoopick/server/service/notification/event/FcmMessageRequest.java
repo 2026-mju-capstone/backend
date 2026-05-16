@@ -8,8 +8,6 @@ import java.util.Optional;
 @NullMarked
 public record FcmMessageRequest(
         Optional<String> token,
-        String title,
-        String body,
         Map<String, String> data
 ) {
     public boolean hasToken() {

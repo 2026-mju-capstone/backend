@@ -3,7 +3,6 @@ package com.zoopick.server.service.notification;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
-import com.google.firebase.messaging.Notification;
 import com.zoopick.server.exception.DataNotFoundException;
 import com.zoopick.server.service.notification.event.FcmMessageRequest;
 import com.zoopick.server.service.notification.event.NotificationDispatchRequestedEvent;
@@ -35,12 +34,7 @@ public class NotificationDispatchEventListener {
     }
 
     private Message toMessage(FcmMessageRequest request) {
-        Notification notification = Notification.builder()
-                .setTitle(request.title())
-                .setBody(request.body())
-                .build();
         return Message.builder()
-                .setNotification(notification)
                 .putAllData(request.data())
                 .setToken(request.token().orElseThrow(() -> DataNotFoundException.from("FCM 토큰", request)))
                 .build();

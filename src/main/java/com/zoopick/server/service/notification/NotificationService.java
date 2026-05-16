@@ -181,6 +181,8 @@ public class NotificationService {
         Map<String, String> data = new HashMap<>(command.payload().toMap());
         data.put("type", command.payload().type().name());
         data.put("id", String.valueOf(notification.getId()));
-        return new FcmMessageRequest(Optional.ofNullable(fcmToken), command.title(), command.body(), data);
+        data.put("title", command.title());
+        data.put("body", command.body());
+        return new FcmMessageRequest(Optional.ofNullable(fcmToken), data);
     }
 }

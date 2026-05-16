@@ -8,6 +8,7 @@ import com.zoopick.server.websocket.message.ChatReadPayload;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.WebSocketSession;
 
@@ -27,10 +28,13 @@ public class ChatWebSocketBroadcaster {
     /**
      * 채팅방의 다른 사용자들에게 메시지를 전송합니다.
      * 웹소켓를 통한 메시지 전송에 실패한 경우 FCM을 통해 알림을 보냅니다.
+     * 보내는 사람에게 전송 상태를 알립니다.
      *
      * @param roomId        채팅방 Id
      * @param senderSession 보내는 사람의 세션
      * @param message       메시지
+     *
+     * @see #broadcastChat(long, long, String, String) 
      */
     public void broadcastChat(long roomId, WebSocketSession senderSession, String message) {
         long senderId = WebSocketSessionUtils.getUserId(senderSession);
@@ -48,6 +52,29 @@ public class ChatWebSocketBroadcaster {
         chatEventSender.sendMessageSafely(senderSession, new ChatInformationPayload(receiverInWebSocketIds.size() + "개의 세션으로 메시지가 전송되었습니다."));
     }
 
+    /**
+     * 채팅방의 다른 사용자들에게 메시지를 전송합니다.
+     * 웹소켓를 통한 메시지 전송에 실패한 경우 FCM을 통해 알림을 보냅니다.
+     *
+     * @param roomId         채팅방 Id
+     * @param senderId       보내는 사람 Id
+     * @param senderNickname 보내는 사람
+     * @param message        메시지
+     * @see #broadcastChat(long, WebSocketSession, String)
+     */
+    public void broadcastChat(long roomId, long senderId, String senderNickname, String message) {
+        ChatBroadcastPayload payload = new ChatBroadcastPayload(senderNickname, message);
+
+        Set<WebSocketSession> sessions = webSocketSessionManager.getSessionsByRoom(roomId);
+        List<Long> receiverInWebSocketIds = sendMessageToOthers(null, sessions, payload);
+
+        chatRoomService.getParticipants(roomId).stream()
+                .filter(participantId -> participantId != senderId)
+                .filter(participantId -> !receiverInWebSocketIds.contains(participantId))
+                .forEach(participantId -> chatRoomService.sendMessageWithNotification(senderId, roomId, message));
+        receiverInWebSocketIds.forEach(receiverId -> chatRoomService.sendMessageWithoutNotification(senderId, roomId, message));
+    }
+
     public void broadcastRead(long roomId, WebSocketSession senderSession) {
         long senderId = WebSocketSessionUtils.getUserId(senderSession);
         String senderNickname = WebSocketSessionUtils.getNickname(senderSession);
@@ -59,11 +86,11 @@ public class ChatWebSocketBroadcaster {
         chatEventSender.sendMessageSafely(senderSession, new ChatInformationPayload(receiverInWebSocketIds.size() + "개의 세션으로 읽음 상태가 전송되었습니다."));
     }
 
-    private List<Long> sendMessageToOthers(WebSocketSession senderSession, Set<WebSocketSession> sessions, ChatEventPayload payload) {
+    private List<Long> sendMessageToOthers(@Nullable WebSocketSession senderSession, Set<WebSocketSession> sessions, ChatEventPayload payload) {
         List<Long> receiverInWebSocketIds = new ArrayList<>();
 
         for (WebSocketSession session : sessions) {
-            if (!session.isOpen() || session.getId().equals(senderSession.getId()))
+            if (!session.isOpen() || (senderSession != null && session.getId().equals(senderSession.getId())))
                 continue;
 
             long id = WebSocketSessionUtils.getUserId(session);

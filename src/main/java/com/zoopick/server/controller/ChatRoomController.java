@@ -4,6 +4,7 @@ import com.zoopick.server.dto.CommonResponse;
 import com.zoopick.server.dto.chat.*;
 import com.zoopick.server.security.UserPrincipal;
 import com.zoopick.server.service.ChatRoomService;
+import com.zoopick.server.websocket.ChatWebSocketBroadcaster;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -23,9 +24,11 @@ import org.springframework.web.bind.annotation.*;
 @NullMarked
 public class ChatRoomController {
     private final ChatRoomService chatRoomService;
+    private final ChatWebSocketBroadcaster chatWebSocketBroadcaster;
 
-    public ChatRoomController(ChatRoomService chatRoomService) {
+    public ChatRoomController(ChatRoomService chatRoomService, ChatWebSocketBroadcaster chatWebSocketBroadcaster) {
         this.chatRoomService = chatRoomService;
+        this.chatWebSocketBroadcaster = chatWebSocketBroadcaster;
     }
 
     @Operation(summary = "채팅방 목록 조회", description = "현재 로그인한 사용자가 참여 중인 채팅방 ID 목록을 조회합니다.")
@@ -141,7 +144,7 @@ public class ChatRoomController {
             @PathVariable long roomId,
             @RequestBody @Valid SendMessageRequest sendMessageRequest
     ) {
-        chatRoomService.sendMessageWithNotification(principal.id(), roomId, sendMessageRequest.getMessage());
+        chatWebSocketBroadcaster.broadcastChat(roomId, principal.id(), principal.nickname(), sendMessageRequest.getMessage());
         return ResponseEntity.ok(CommonResponse.success("done"));
     }
 
