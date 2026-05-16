@@ -86,6 +86,14 @@ public class ChatWebSocketBroadcaster {
         chatEventSender.sendMessageSafely(senderSession, new ChatInformationPayload(receiverInWebSocketIds.size() + "개의 세션으로 읽음 상태가 전송되었습니다."));
     }
 
+    public void broadcastRead(long roomId, long senderId, String senderNickname) {
+        ChatReadPayload payload = new ChatReadPayload(senderNickname);
+        chatRoomService.readChatMessages(senderId, roomId);
+
+        Set<WebSocketSession> sessions = webSocketSessionManager.getSessionsByRoom(roomId);
+        sendMessageToOthers(null, sessions, payload);
+    }
+
     private List<Long> sendMessageToOthers(@Nullable WebSocketSession senderSession, Set<WebSocketSession> sessions, ChatEventPayload payload) {
         List<Long> receiverInWebSocketIds = new ArrayList<>();
 

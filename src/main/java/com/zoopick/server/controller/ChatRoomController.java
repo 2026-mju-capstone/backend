@@ -111,6 +111,23 @@ public class ChatRoomController {
         return ResponseEntity.ok(CommonResponse.success(record));
     }
 
+    @Operation(summary = "채팅방 읽음", description = "채팅방 ID로 채팅방의 채팅을 읽음으로 표시함.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "채팅방 읽기 성공"),
+            @ApiResponse(responseCode = "400", description = "채팅방 참여자가 아님"),
+            @ApiResponse(responseCode = "401", description = "인증 필요"),
+            @ApiResponse(responseCode = "404", description = "채팅방을 찾을 수 없음")
+    })
+    @GetMapping("/{roomId}/read")
+    public ResponseEntity<CommonResponse<String>> readChatRoom(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "읽을 채팅방 ID", example = "1")
+            @PathVariable long roomId
+    ) {
+        chatWebSocketBroadcaster.broadcastRead(roomId, principal.id(), principal.nickname());
+        return ResponseEntity.ok(CommonResponse.success("done"));
+    }
+
     @Operation(summary = "채팅 메시지 조회", description = "채팅방의 메시지 목록을 조회합니다. 필요하면 필터를 함께 전달할 수 있습니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "메시지 조회 성공"),
