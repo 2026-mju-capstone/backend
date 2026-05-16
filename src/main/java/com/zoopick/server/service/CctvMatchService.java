@@ -159,6 +159,6 @@ public class CctvMatchService {
         if (itemColor == detectionColor) {
             finalScore *= matchConfig.getColorBonus();
         }
-        return finalScore;
+        return Math.min(finalScore, 1.0f);
     }
 }
