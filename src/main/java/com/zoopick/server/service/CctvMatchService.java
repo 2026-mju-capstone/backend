@@ -93,7 +93,8 @@ public class CctvMatchService {
                         .cctvDetection(cctvDetection)
                         .build());
                 log.info("CCTV 매칭된 아이템 ID: {}", lostItem.getId());
-                eventPublisher.publishEvent(new CreateCctvMatchEvent(lostItem, savedMatch, cctvDetection, itemPost));
+                Room room = cctvDetection.getCctvVideo().getRoom();
+                eventPublisher.publishEvent(new CreateCctvMatchEvent(lostItem, savedMatch, cctvDetection, itemPost, room));
             }
         }
         log.info("[CCTV] 매칭 종료 ID: {}", detectionId);
@@ -146,8 +147,9 @@ public class CctvMatchService {
                         .cctvDetection(foundItemInDb)
                         .build());
                 log.info("[CCTV] 매칭된 Detection ID: {}", foundItemInDb.getId());
+                Room foundRoom = foundItemInDb.getCctvVideo().getRoom();
                 eventPublisher
-                        .publishEvent(new CreateCctvMatchEvent(lostItem, savedMatch, foundItemInDb, lostItemPost));
+                        .publishEvent(new CreateCctvMatchEvent(lostItem, savedMatch, foundItemInDb, lostItemPost, foundRoom));
             }
         }
         log.info("[CCTV] 매칭 종료 ID: {}", lostItemId);

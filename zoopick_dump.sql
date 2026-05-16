@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict dJx3IgiugBwJZYMDWrR0US0pal6u35Hdm2fQbPsePO0N9aGn2WEodEMq8BSov0h
+\restrict d2PNngeVb8pLQVks9u88AsMEZ4EADLpzp5p5oM1BXpphFArhFN03khTuoKN2QR1
 
 -- Dumped from database version 18.3
 -- Dumped by pg_dump version 18.3
@@ -1225,6 +1225,7 @@ COPY zoopick.locker_commands (id, locker_id, command, status, issued_by, created
 --
 
 COPY zoopick.lockers (id, status, current_item_id) FROM stdin;
+1	EMPTY	\N
 \.
 
 
@@ -1667,27 +1668,6 @@ ALTER TABLE ONLY zoopick.users
 
 
 --
--- Name: idx_items_embedding_hnsw; Type: INDEX; Schema: zoopick; Owner: postgres
---
-
-CREATE INDEX idx_items_embedding_hnsw ON zoopick.items USING hnsw (embedding vector_cosine_ops);
-
-
---
--- Name: idx_detections_embedding_hnsw; Type: INDEX; Schema: zoopick; Owner: postgres
---
-
-CREATE INDEX idx_detections_embedding_hnsw ON zoopick.cctv_detections USING hnsw (embedding vector_cosine_ops);
-
-
---
--- Name: idx_items_filtering; Type: INDEX; Schema: zoopick; Owner: postgres
---
-
-CREATE INDEX idx_items_filtering ON zoopick.items (category, color);
-
-
---
 -- Name: idx_chatrooms_open; Type: INDEX; Schema: zoopick; Owner: postgres
 --
 
@@ -1697,7 +1677,6 @@ CREATE INDEX idx_chatrooms_open ON zoopick.chat_rooms USING btree (status) WHERE
 --
 -- Name: idx_commands_pending; Type: INDEX; Schema: zoopick; Owner: postgres
 --
-
 
 CREATE INDEX idx_commands_pending ON zoopick.locker_commands USING btree (locker_id, created_at) WHERE (status = 'PENDING'::zoopick.locker_command_status);
 
@@ -2061,4 +2040,5 @@ ALTER TABLE ONLY zoopick.cctv_videos
 -- PostgreSQL database dump complete
 --
 
-\unrestrict dJx3IgiugBwJZYMDWrR0US0pal6u35Hdm2fQbPsePO0N9aGn2WEodEMq8BSov0h
+\unrestrict d2PNngeVb8pLQVks9u88AsMEZ4EADLpzp5p5oM1BXpphFArhFN03khTuoKN2QR1
+

@@ -22,7 +22,7 @@ public class CreateCctvMatchEventListner {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleMatchCreated(CreateCctvMatchEvent event) {
-        Room room = event.cctvDetection().getCctvVideo().getRoom();
+        Room room = event.room();
         Item item = event.item();
         CctvDetectionMatch cctvDetectionMatch = event.cctvDetectionMatch();
         String title = event.itemPost().getTitle();

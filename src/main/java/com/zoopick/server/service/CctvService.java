@@ -319,6 +319,10 @@ public class CctvService {
             log.warn("[CCTV] 권한 없는 사용자의 리뷰 시도: userId={}, matchId={}", userId, matchId);
             throw new ForbiddenException("해당 매칭 정보를 수정할 권한이 없습니다.");
         }
+        if (request.getReviewStatus() != DetectionReviewStatus.CONFIRMED_SELF
+                && request.getReviewStatus() != DetectionReviewStatus.REJECTED_SELF) {
+            throw new BadRequestException("유효하지 않은 리뷰 상태입니다.");
+        }
         if (cctvDetectionMatch.getReviewStatus() != DetectionReviewStatus.PENDING) {
             log.info("[CCTV] 이미 처리된 Detection입니다. matchId={}, Status={}", matchId, cctvDetectionMatch.getReviewStatus());
             return;
