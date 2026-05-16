@@ -1,15 +1,10 @@
 package com.zoopick.server.service;
 
+import com.zoopick.server.dto.match.CctvMatchCriteria;
 import com.zoopick.server.dto.match.CreateCctvMatchEvent;
 import com.zoopick.server.dto.match.SimilarItemResult;
-import com.zoopick.server.entity.CctvDetection;
-import com.zoopick.server.entity.CctvDetectionMatch;
-import com.zoopick.server.entity.Item;
-import com.zoopick.server.entity.ItemPost;
-import com.zoopick.server.repository.CctvDetectionMatchRepository;
-import com.zoopick.server.repository.CctvDetectionRepository;
-import com.zoopick.server.repository.ItemPostRepository;
-import com.zoopick.server.repository.ItemRepository;
+import com.zoopick.server.entity.*;
+import com.zoopick.server.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +27,8 @@ public class CctvMatchService {
     private final ItemRepository itemRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ItemPostRepository itemPostRepository;
+    private final CctvMatchCriteriaResolver cctvMatchCriteriaResolver;
+
     @Value("${zoopick.similarity.threshold}")
     private float similarityThreshold;
 
@@ -39,11 +36,16 @@ public class CctvMatchService {
     public void matchCctvToLostItems(Long detectionId) {
         log.info("[CCTV] 매칭 시작 ID: {}", detectionId);
         CctvDetection cctvDetection = cctvDetectionRepository.findById(detectionId).orElse(null);
+        if (cctvDetection == null)
+            return;
+
         Vector embedding = Vector.of(cctvDetection.getEmbedding());
+
         List<SimilarItemResult> similarItems = cctvDetectionMatchRepository.findLostItems(
-                        embedding,
-                        cctvDetection.getDetectedCategory().name(),
-                        similarityThreshold)
+                embedding,
+                cctvDetection.getDetectedCategory().name(),
+                cctvDetection.getCctvVideo().getRecordedAt(),
+                similarityThreshold)
                 .stream()
                 .map(p -> new SimilarItemResult(p.getItemId(), p.getScore()))
                 .toList();
@@ -59,23 +61,36 @@ public class CctvMatchService {
         Map<Long, ItemPost> itemPostMap = itemPostRepository.findAllByItemIdsWithItem(itemIds)
                 .stream()
                 .collect(Collectors.toMap(
-                        post -> post.getItem().getId(), // Key: Item의 ID
-                        post -> post                   // Value: ItemPost 객체 (안에 Item이 들어있음)
-                ));
+                        post -> post.getItem().getId(),
+                        post -> post));
+
+        Room detectionRoom = cctvDetection.getCctvVideo().getRoom();
 
         for (SimilarItemResult s : similarItems) {
-            // 중복 저장 방지
             ItemPost itemPost = itemPostMap.get(s.getItemId());
-            Item foundItemInDb = itemPost.getItem();
-            if (!cctvDetectionMatchRepository.existsByCctvDetectionAndItem(cctvDetection, foundItemInDb)) {
+            if (itemPost == null)
+                continue;
+            Item lostItem = itemPost.getItem();
+
+            CctvMatchCriteria criteria = cctvMatchCriteriaResolver.resolve(lostItem);
+            if (!criteria.roomIds().contains(detectionRoom.getId())) {
+                log.debug("[CCTV] 아이템 검색 범위 외 강의실 탐지 ID: {}", lostItem.getId());
+                continue;
+            }
+
+            if (cctvDetection.getDetectedAt().isBefore(criteria.searchStartTime())) {
+                log.debug("[CCTV] 아이템 검색 시작 시간 이전 탐지 ID: {}", lostItem.getId());
+                continue;
+            }
+
+            if (!cctvDetectionMatchRepository.existsByCctvDetectionAndItem(cctvDetection, lostItem)) {
                 CctvDetectionMatch savedMatch = cctvDetectionMatchRepository.save(CctvDetectionMatch.builder()
                         .score((float) s.getScore())
-                        .item(foundItemInDb)
+                        .item(lostItem)
                         .cctvDetection(cctvDetection)
                         .build());
-                log.info("CCTV 매칭된 아이템 ID: {}", foundItemInDb.getId());
-                //TODO: 이벤트 퍼블리싱으로 FCM 보내기
-                eventPublisher.publishEvent(new CreateCctvMatchEvent(foundItemInDb, savedMatch, cctvDetection, itemPost));
+                log.info("CCTV 매칭된 아이템 ID: {}", lostItem.getId());
+                eventPublisher.publishEvent(new CreateCctvMatchEvent(lostItem, savedMatch, cctvDetection, itemPost));
             }
         }
         log.info("[CCTV] 매칭 종료 ID: {}", detectionId);
@@ -88,10 +103,19 @@ public class CctvMatchService {
         ItemPost lostItemPost = itemPostRepository.findByItem(lostItem);
 
         Vector embedding = Vector.of(lostItem.getEmbedding());
+
+        CctvMatchCriteria criteria = cctvMatchCriteriaResolver.resolve(lostItem);
+        if (criteria.roomIds().isEmpty()) {
+            log.info("[CCTV] 매칭 가능한 장소 정보가 없습니다. ID: {}", lostItemId);
+            return;
+        }
+
         List<SimilarItemResult> similarItems = cctvDetectionMatchRepository.findDetections(
-                        embedding,
-                        lostItem.getCategory().name(),
-                        similarityThreshold)
+                embedding,
+                lostItem.getCategory().name(),
+                criteria.roomIds(),
+                criteria.searchStartTime(),
+                similarityThreshold)
                 .stream()
                 .map(p -> new SimilarItemResult(p.getItemId(), p.getScore()))
                 .toList();
@@ -101,17 +125,15 @@ public class CctvMatchService {
             return;
         }
         Map<Long, CctvDetection> detectionMap = cctvDetectionRepository.findAllById(
-                        similarItems.stream().map(SimilarItemResult::getItemId).toList())
+                similarItems.stream().map(SimilarItemResult::getItemId).toList())
                 .stream()
                 .collect(Collectors.toMap(CctvDetection::getId, i -> i));
 
         for (SimilarItemResult s : similarItems) {
-            // 중복 저장 방지
             CctvDetection foundItemInDb = detectionMap.get(s.getItemId());
-            if (foundItemInDb == null) {
-                log.error("검색 결과에는 있으나 DB 조회에 실패한 Detection ID: {}", s.getItemId());
+            if (foundItemInDb == null)
                 continue;
-            }
+
             if (!cctvDetectionMatchRepository.existsByCctvDetectionAndItem(foundItemInDb, lostItem)) {
                 CctvDetectionMatch savedMatch = cctvDetectionMatchRepository.save(CctvDetectionMatch.builder()
                         .score((float) s.getScore())
@@ -119,8 +141,8 @@ public class CctvMatchService {
                         .cctvDetection(foundItemInDb)
                         .build());
                 log.info("[CCTV] 매칭된 Detection ID: {}", foundItemInDb.getId());
-                //TODO: 이벤트 퍼블리싱으로 FCM 보내기
-                eventPublisher.publishEvent(new CreateCctvMatchEvent(lostItem, savedMatch, foundItemInDb, lostItemPost));
+                eventPublisher
+                        .publishEvent(new CreateCctvMatchEvent(lostItem, savedMatch, foundItemInDb, lostItemPost));
             }
         }
         log.info("[CCTV] 매칭 종료 ID: {}", lostItemId);
