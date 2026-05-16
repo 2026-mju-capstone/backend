@@ -1,5 +1,6 @@
 package com.zoopick.server.service;
 
+import com.zoopick.server.config.MatchConfig;
 import com.zoopick.server.dto.match.*;
 import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
@@ -8,7 +9,6 @@ import com.zoopick.server.repository.ItemRepository;
 import com.zoopick.server.repository.LockerRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Vector;
 import org.springframework.stereotype.Service;
@@ -27,8 +27,7 @@ public class ItemMatchService {
     private final ItemMatchRepository itemMatchRepository;
     private final LockerRepository lockerRepository;
     private final ApplicationEventPublisher eventPublisher;
-    @Value("${zoopick.similarity.threshold}")
-    private float similarityThreshold;
+    private final MatchConfig matchConfig;
 
     @Transactional
     public void createMatch(Long itemId) {
@@ -40,7 +39,7 @@ public class ItemMatchService {
                         targetItem.getType().name(),
                         targetItem.getCategory().name(),
                         targetItem.getReporter().getId(),
-                        similarityThreshold)
+                        matchConfig.getSimilarityThreshold())
                 .stream()
                 .map(p -> new SimilarItemResult(p.getItemId(), p.getScore()))
                 .toList();
@@ -59,7 +58,7 @@ public class ItemMatchService {
                 .map(s -> {
                     Item found = itemMap.get(s.getItemId());
                     float score = (float) s.getScore();
-                    if (targetItem.getColor() == found.getColor()) score *= 1.02f;
+                    if (targetItem.getColor() == found.getColor()) score *= matchConfig.getColorBonus();
                     return new SimilarItemResult(s.getItemId(), Math.min(score, 1.0f));
                 })
                 .sorted(Comparator.comparingDouble(SimilarItemResult::getScore).reversed())

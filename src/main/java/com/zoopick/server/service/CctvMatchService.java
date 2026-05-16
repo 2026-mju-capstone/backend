@@ -1,13 +1,16 @@
 package com.zoopick.server.service;
 
+import com.zoopick.server.config.MatchConfig;
 import com.zoopick.server.dto.match.CctvMatchCriteria;
 import com.zoopick.server.dto.match.CreateCctvMatchEvent;
 import com.zoopick.server.dto.match.SimilarItemResult;
 import com.zoopick.server.entity.*;
-import com.zoopick.server.repository.*;
+import com.zoopick.server.repository.CctvDetectionMatchRepository;
+import com.zoopick.server.repository.CctvDetectionRepository;
+import com.zoopick.server.repository.ItemPostRepository;
+import com.zoopick.server.repository.ItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Vector;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CctvMatchService {
+    private final MatchConfig matchConfig;
     private final CctvDetectionRepository cctvDetectionRepository;
     private final CctvDetectionMatchRepository cctvDetectionMatchRepository;
     private final ItemRepository itemRepository;
@@ -29,9 +33,7 @@ public class CctvMatchService {
     private final ItemPostRepository itemPostRepository;
     private final CctvMatchCriteriaResolver cctvMatchCriteriaResolver;
 
-    @Value("${zoopick.similarity.threshold}")
-    private float similarityThreshold;
-
+    //CCTV가 분석 완료됐을 때 매칭
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void matchCctvToLostItems(Long detectionId) {
         log.info("[CCTV] 매칭 시작 ID: {}", detectionId);
@@ -45,7 +47,7 @@ public class CctvMatchService {
                 embedding,
                 cctvDetection.getDetectedCategory().name(),
                 cctvDetection.getCctvVideo().getRecordedAt(),
-                similarityThreshold)
+                matchConfig.getSimilarityThreshold())
                 .stream()
                 .map(p -> new SimilarItemResult(p.getItemId(), p.getScore()))
                 .toList();
@@ -84,8 +86,9 @@ public class CctvMatchService {
             }
 
             if (!cctvDetectionMatchRepository.existsByCctvDetectionAndItem(cctvDetection, lostItem)) {
+                float finalScore = calculateBonusScore(s.getScore(), lostItem.getColor(), cctvDetection.getDetectedColor());
                 CctvDetectionMatch savedMatch = cctvDetectionMatchRepository.save(CctvDetectionMatch.builder()
-                        .score((float) s.getScore())
+                        .score(finalScore)
                         .item(lostItem)
                         .cctvDetection(cctvDetection)
                         .build());
@@ -96,6 +99,7 @@ public class CctvMatchService {
         log.info("[CCTV] 매칭 종료 ID: {}", detectionId);
     }
 
+    //사용자가 글을 올렸을 때 매칭
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void matchLostItemsToCctv(Long lostItemId) {
         log.info("[CCTV] 매칭 시작 ID: {}", lostItemId);
@@ -115,7 +119,7 @@ public class CctvMatchService {
                 lostItem.getCategory().name(),
                 criteria.roomIds(),
                 criteria.searchStartTime(),
-                similarityThreshold)
+                matchConfig.getSimilarityThreshold())
                 .stream()
                 .map(p -> new SimilarItemResult(p.getItemId(), p.getScore()))
                 .toList();
@@ -135,8 +139,9 @@ public class CctvMatchService {
                 continue;
 
             if (!cctvDetectionMatchRepository.existsByCctvDetectionAndItem(foundItemInDb, lostItem)) {
+                float finalScore = calculateBonusScore(s.getScore(), lostItem.getColor(), foundItemInDb.getDetectedColor());
                 CctvDetectionMatch savedMatch = cctvDetectionMatchRepository.save(CctvDetectionMatch.builder()
-                        .score((float) s.getScore())
+                        .score(finalScore)
                         .item(lostItem)
                         .cctvDetection(foundItemInDb)
                         .build());
@@ -146,5 +151,14 @@ public class CctvMatchService {
             }
         }
         log.info("[CCTV] 매칭 종료 ID: {}", lostItemId);
+    }
+
+    private float calculateBonusScore(double baseScore, ItemColor itemColor, ItemColor detectionColor) {
+        float finalScore = (float) baseScore;
+        // 두 컬러가 모두 존재하고 일치할 경우 가산점 적용
+        if (itemColor == detectionColor) {
+            finalScore *= matchConfig.getColorBonus();
+        }
+        return finalScore;
     }
 }
