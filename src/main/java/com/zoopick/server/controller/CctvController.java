@@ -2,14 +2,17 @@ package com.zoopick.server.controller;
 
 import com.zoopick.server.dto.CommonResponse;
 import com.zoopick.server.dto.cctv.*;
+import com.zoopick.server.security.UserPrincipal;
 import com.zoopick.server.service.CctvService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -109,6 +112,36 @@ public class CctvController {
         return ResponseEntity.ok(CommonResponse.success(response));
     }
 
+    @Operation(
+            summary = "나의 CCTV 분실물 매칭 목록 조회",
+            description = """
+        로그인한 유저가 등록한 분실물 중 CCTV AI 분석을 통해 매칭된 결과 목록을 조회합니다.
+        매칭 횟수가 1회 이상인 아이템만 반환됩니다.
+        """
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "401", description = "인증되지 않은 사용자 (토큰 만료 또는 없음)"),
+            @ApiResponse(responseCode = "404", description = "유저 정보를 찾을 수 없음")
+    })
+    @GetMapping("/detections/me")
+    public ResponseEntity<CommonResponse<GetDetectionsMeResponse>> getDetectionsMe(
+            @Parameter(description = "조회할 유저")
+            @AuthenticationPrincipal UserPrincipal principal) {
+        GetDetectionsMeResponse response = cctvService.getDetectionsMe(1L);
+        return ResponseEntity.ok(CommonResponse.success(response));
+    }
+
+
+    @Operation(
+            summary = "CCTV 업로드",
+            description = """
+            관리자가 CCTV를 업로드합니다.
+            """
+    )
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "성공"),
+    })
     @PostMapping("/upload")
     public ResponseEntity<CommonResponse<String>> uploadVideo(@RequestParam("file") MultipartFile file) throws IOException {
         String path = cctvService.uploadVideo(file);

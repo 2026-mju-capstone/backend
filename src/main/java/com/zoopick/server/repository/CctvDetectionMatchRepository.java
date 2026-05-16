@@ -1,5 +1,6 @@
 package com.zoopick.server.repository;
 
+import com.zoopick.server.dto.cctv.MatchedLostItems;
 import com.zoopick.server.dto.match.SimilarItemProjection;
 import com.zoopick.server.entity.CctvDetection;
 import com.zoopick.server.entity.CctvDetectionMatch;
@@ -54,4 +55,23 @@ public interface CctvDetectionMatchRepository extends JpaRepository<CctvDetectio
 
     // 중복 체크
     boolean existsByCctvDetectionAndItem(CctvDetection detection, Item lostItem);
+
+
+    @Query("""
+     SELECT new com.zoopick.server.dto.cctv.MatchedLostItems(
+          i.id,
+          p.title,
+          i.category,
+          CAST(COUNT(m.id) AS int),
+          i.reportedAt,
+          i.imageUrl
+          )
+     FROM ItemPost p
+     JOIN p.item i
+     LEFT JOIN CctvDetectionMatch m ON m.item.id = i.id
+     WHERE p.user.id = :userId
+     GROUP BY i.id, p.title, i.category, i.reportedAt, i.imageUrl
+     HAVING COUNT(m.id) > 0
+     """)
+    List<MatchedLostItems> findCctvDetectionByUserId(@Param("userId") Long userId);
 }

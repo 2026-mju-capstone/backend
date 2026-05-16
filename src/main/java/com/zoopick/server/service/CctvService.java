@@ -6,10 +6,7 @@ import com.zoopick.server.dto.match.SaveCctvDetectionEvent;
 import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
 import com.zoopick.server.exception.DataNotFoundException;
-import com.zoopick.server.repository.CctvDetectionRepository;
-import com.zoopick.server.repository.CctvVideoProgressRepository;
-import com.zoopick.server.repository.CctvVideoRepository;
-import com.zoopick.server.repository.RoomRepository;
+import com.zoopick.server.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,6 +40,7 @@ public class CctvService {
     private final RestClient fastApiRestClient;
     private final FastApiProperties fastApiProperties;
     private final ApplicationEventPublisher eventPublisher;
+    private final CctvDetectionMatchRepository cctvDetectionMatchRepository;
     @Value("${zoopick.callback-url}")
     private String callbackBaseUrl;
 
@@ -222,7 +220,6 @@ public class CctvService {
         cctvVideoProgressRepository.save(progress);
         log.info("CCTV Video analysis completed: video_id={}, total_detections={}",
                 callback.getVideoId(), callback.getTotalDetections());
-        // TODO: 매칭 트리거 및 알림 로직 추가
     }
 
     @Transactional
@@ -295,5 +292,10 @@ public class CctvService {
 
         //return target.toAbsolutePath().toString(); 절대경로 반환
         return "backend/storage/cctv/videos/" + filename; // 상대경로
+    }
+
+    public GetDetectionsMeResponse getDetectionsMe(Long userId) {
+        List<MatchedLostItems> matchedLostItems = cctvDetectionMatchRepository.findCctvDetectionByUserId(userId);
+        return new GetDetectionsMeResponse(matchedLostItems);
     }
 }
