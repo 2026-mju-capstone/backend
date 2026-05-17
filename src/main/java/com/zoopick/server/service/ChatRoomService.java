@@ -45,13 +45,9 @@ public class ChatRoomService {
         User requester = userRepository.findByIdOrThrow(requesterId);
         User counterpart = userRepository.findByIdOrThrow(createChatRoomRequest.getCounterpartId());
 
-        Optional<ChatRoom> existingChatRoom = chatRoomRepository.findByParticipantIdAndItemIdIs(requesterId, itemId);
+        Optional<ChatRoom> existingChatRoom = chatRoomRepository.findOpenByParticipantAndItem(requesterId, itemId);
         if (existingChatRoom.isPresent()) {
-            ChatRoom existing = existingChatRoom.get();
-            existing.setStatus(ChatRoomStatus.OPEN);
-            existing.setResolvedBy(null);
-            existing.setResolvedAt(null);
-            return new CreateChatRoomResult(false, chatRoomMapper.toChatRoomRecord(existing));
+            return new CreateChatRoomResult(false, chatRoomMapper.toChatRoomRecord(existingChatRoom.get()));
         }
 
         ChatRoom chatRoom = ChatRoom.builder()
