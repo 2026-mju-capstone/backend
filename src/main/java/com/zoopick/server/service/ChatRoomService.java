@@ -231,7 +231,9 @@ public class ChatRoomService {
         chatRoom.setResolvedAt(LocalDateTime.now());
         chatRoomRepository.save(chatRoom);
 
-        if (reason == ChatRoomCloseReason.RETURNED && chatRoom.getItem() != null) {
+        // 사물함에 있는 물건은 handleRetrieval에서 RETURNED 처리 (여기서 조기 변경 금지)
+        if (reason == ChatRoomCloseReason.RETURNED && chatRoom.getItem() != null
+                && chatRoom.getItem().getStatus() != ItemStatus.IN_LOCKER) {
             chatRoom.getItem().setStatus(ItemStatus.RETURNED);
         }
 
