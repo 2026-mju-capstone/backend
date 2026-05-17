@@ -113,7 +113,7 @@ public class ChatRoomService {
     }
 
     public FindChatRoomResult findChatRoom(long userId, long itemId) {
-        Optional<Long> chatRoomId = chatRoomRepository.findByParticipantIdAndItemIdIs(userId, itemId)
+        Optional<Long> chatRoomId = chatRoomRepository.findOpenByParticipantAndItem(userId, itemId)
                 .map(ChatRoom::getId);
 
         return new FindChatRoomResult(chatRoomId.isPresent(), chatRoomId.orElse(0L));
