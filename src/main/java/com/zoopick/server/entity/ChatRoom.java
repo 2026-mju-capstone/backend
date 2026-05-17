@@ -49,6 +49,11 @@ public class ChatRoom {
     @Builder.Default
     private ChatRoomStatus status = ChatRoomStatus.OPEN;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @OnDelete(action = OnDeleteAction.SET_NULL)
+    @JoinColumn(name = "resolved_by")
+    private User resolvedBy;
+
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 

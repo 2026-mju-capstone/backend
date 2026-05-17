@@ -47,8 +47,11 @@ public class ChatRoomService {
 
         Optional<ChatRoom> existingChatRoom = chatRoomRepository.findByParticipantIdAndItemIdIs(requesterId, itemId);
         if (existingChatRoom.isPresent()) {
-            existingChatRoom.get().setStatus(ChatRoomStatus.OPEN);
-            return new CreateChatRoomResult(false, chatRoomMapper.toChatRoomRecord(existingChatRoom.get()));
+            ChatRoom existing = existingChatRoom.get();
+            existing.setStatus(ChatRoomStatus.OPEN);
+            existing.setResolvedBy(null);
+            existing.setResolvedAt(null);
+            return new CreateChatRoomResult(false, chatRoomMapper.toChatRoomRecord(existing));
         }
 
         ChatRoom chatRoom = ChatRoom.builder()
@@ -64,9 +67,8 @@ public class ChatRoomService {
         User requester = userRepository.findByIdOrThrow(requesterId);
         User owner = userRepository.findByIdOrThrow(ownerId);
 
-        Optional<ChatRoom> existingChatRoom = chatRoomRepository.findByOwnerIdAndFinderIdIs(ownerId, requesterId);
+        Optional<ChatRoom> existingChatRoom = chatRoomRepository.findByOwnerIdAndFinderIdIsAndStatus(ownerId, requesterId, ChatRoomStatus.OPEN);
         if (existingChatRoom.isPresent()) {
-            existingChatRoom.get().setStatus(ChatRoomStatus.OPEN);
             return new CreateChatRoomResult(false, chatRoomMapper.toChatRoomRecord(existingChatRoom.get()));
         }
 
@@ -229,6 +231,7 @@ public class ChatRoomService {
             throw new BadRequestException("이미 닫힌 채팅방입니다.", chatRoomId + " is already closed.");
 
         chatRoom.setStatus(reason.toChatRoomStatus());
+        chatRoom.setResolvedBy(sender);
         chatRoom.setResolvedAt(LocalDateTime.now());
         chatRoomRepository.save(chatRoom);
 
@@ -257,6 +260,7 @@ public class ChatRoomService {
             throw new BadRequestException("이미 열린 채팅방입니다.", chatRoomId + " is already opened.");
 
         chatRoom.setStatus(ChatRoomStatus.OPEN);
+        chatRoom.setResolvedBy(null);
         chatRoom.setResolvedAt(null);
         chatRoomRepository.save(chatRoom);
 

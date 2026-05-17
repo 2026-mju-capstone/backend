@@ -1,6 +1,7 @@
 package com.zoopick.server.repository;
 
 import com.zoopick.server.entity.ChatRoom;
+import com.zoopick.server.entity.ChatRoomStatus;
 import com.zoopick.server.exception.DataNotFoundException;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -29,4 +30,6 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     long countByOwnerIdOrFinderId(Long ownerId, Long finderId);
 
     Optional<ChatRoom> findByOwnerIdAndFinderIdIs(long ownerId, long finderId);
+
+    Optional<ChatRoom> findByOwnerIdAndFinderIdIsAndStatus(long ownerId, long finderId, ChatRoomStatus status);
 }
