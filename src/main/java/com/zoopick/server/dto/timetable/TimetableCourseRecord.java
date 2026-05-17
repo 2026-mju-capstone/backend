@@ -15,6 +15,7 @@ public class TimetableCourseRecord {
     private Long courseId;
     private String courseName;
     private String roomName;
+    private Long buildingId;
     private String buildingName;
     private String buildingCode;
     private String color;

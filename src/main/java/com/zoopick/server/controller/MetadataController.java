@@ -1,6 +1,8 @@
 package com.zoopick.server.controller;
 
 import com.zoopick.server.dto.CommonResponse;
+import com.zoopick.server.dto.metadata.BuildingRecord;
+import com.zoopick.server.dto.metadata.RoomRecord;
 import com.zoopick.server.service.MetadataService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -10,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NullMarked;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -28,9 +31,17 @@ public class MetadataController {
             @ApiResponse(responseCode = "200", description = "건물 목록 조회 성공")
     })
     @GetMapping("/buildings")
-    public ResponseEntity<CommonResponse<List<String>>> getBuildings() {
-        List<String> buildings = metadataService.getBuildings();
-        return ResponseEntity.ok(CommonResponse.success(buildings));
+    public ResponseEntity<CommonResponse<List<BuildingRecord>>> getBuildings() {
+        return ResponseEntity.ok(CommonResponse.success(metadataService.getBuildings()));
+    }
+
+    @Operation(summary = "강의실 목록 조회", description = "특정 건물의 강의실 목록을 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "강의실 목록 조회 성공")
+    })
+    @GetMapping("/buildings/{buildingId}/rooms")
+    public ResponseEntity<CommonResponse<List<RoomRecord>>> getRooms(@PathVariable Long buildingId) {
+        return ResponseEntity.ok(CommonResponse.success(metadataService.getRooms(buildingId)));
     }
 
     @Operation(summary = "물품 카테고리 목록 조회", description = "게시글 작성 및 조회에 사용하는 물품 카테고리 목록을 조회합니다.")

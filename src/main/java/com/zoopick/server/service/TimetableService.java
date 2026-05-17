@@ -88,7 +88,7 @@ public class TimetableService {
                     List<CourseSchedule> schedules = scheduleMap.getOrDefault(c.getId(), Collections.emptyList());
                     return new TimetableCourseRecord(
                             c.getId(), c.getCourseName(),
-                            r.getName(), b.getName(), b.getCode(), t.getColor(),
+                            r.getName(), b.getId(), b.getName(), b.getCode(), t.getColor(),
                             schedules.stream()
                                     .map(s -> new TimetableCourseScheduleRecord(s.getDayOfWeek(), s.getStartTime(), s.getEndTime()))
                                     .toList()
@@ -158,7 +158,7 @@ public class TimetableService {
             List<CourseSchedule> schedules = scheduleMap.getOrDefault(c.getId(), Collections.emptyList());
             return new TimetableCourseRecord(
                     c.getId(), c.getCourseName(),
-                    r.getName(), b.getName(), b.getCode(), null,
+                    r.getName(), b.getId(), b.getName(), b.getCode(), null,
                     schedules.stream()
                             .map(s -> new TimetableCourseScheduleRecord(s.getDayOfWeek(), s.getStartTime(), s.getEndTime()))
                             .toList()
