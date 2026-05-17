@@ -17,7 +17,7 @@ import java.util.Date;
 @NullMarked
 public class JwtUtil {
     // 토큰 만료 시간 1일
-    private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 24;
+    private static final long EXPIRATION_TIME = 1000 * 60 * 60 * 24 * 7;
 
     private final SecretKey secretKey;
 

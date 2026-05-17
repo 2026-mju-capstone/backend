@@ -23,6 +23,7 @@ public class LockerService {
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
     private final ItemMatchRepository itemMatchRepository;
+    private final ChatRoomRepository chatRoomRepository;
 
     @Transactional
     public LockerCommand requestUnlock(Long userId, Long lockerId, Long itemId) {
@@ -87,12 +88,13 @@ public class LockerService {
     private void handleRetrieval(Long userId, Locker locker) {
         Item stored = locker.getCurrentItem();
 
-        //권한 확인: 신고자 본인이거나, CONFIRMED 매칭된 소유자여야 함
+        //권한 확인: 신고자 본인이거나, CONFIRMED 매칭된 소유자이거나, 채팅으로 합의한 분실자여야 함
         boolean isReporter = stored.getReporter().getId().equals(userId);
         boolean isMatchedOwner = itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(
                 stored, userId, MatchStatus.CONFIRMED);
+        boolean isChatOwner = chatRoomRepository.existsByItemAndOwnerId(stored, userId);
 
-        if (!isReporter && !isMatchedOwner) {
+        if (!isReporter && !isMatchedOwner && !isChatOwner) {
             throw new ForbiddenException(
                     "물품을 회수할 권한이 없습니다.",
                     "User " + userId + " has no permission to retrieve item " + stored.getId());
