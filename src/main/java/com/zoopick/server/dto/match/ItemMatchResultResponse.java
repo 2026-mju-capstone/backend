@@ -5,15 +5,17 @@ import com.zoopick.server.entity.MatchStatus;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Getter
 @Setter
 @AllArgsConstructor
+@NoArgsConstructor
 public class ItemMatchResultResponse {
     @NotNull
     @JsonProperty("match_id")
-    private String matchId;
+    private long matchId;
     @NotNull
     @JsonProperty("found_item_id")
     private long foundItemId;
@@ -24,12 +26,14 @@ public class ItemMatchResultResponse {
     private String foundPostTitle;
     @JsonProperty("found_image_url")
     private String foundImageUrl;
-    @JsonProperty("locationName")
+    @JsonProperty("location_name")
     private String locationName;
     @JsonProperty("found_nickname")
     private String foundNickname;
     @JsonProperty("found_department")
     private String foundDepartment;
-    private double score;
+    private float score;
     private MatchStatus status;
+    @JsonProperty("counterpart_id")
+    private Long counterpartId;
 }

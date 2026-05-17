@@ -2,6 +2,7 @@ package com.zoopick.server.controller;
 
 import com.zoopick.server.dto.CommonResponse;
 import com.zoopick.server.dto.match.ItemMatchResultResponse;
+import com.zoopick.server.dto.match.MatchConfirmResponse;
 import com.zoopick.server.dto.match.MatchManualRequest;
 import com.zoopick.server.dto.match.MatchManualResponse;
 import com.zoopick.server.security.UserPrincipal;
@@ -43,11 +44,10 @@ public class ItemMatchController {
             @ApiResponse(responseCode = "404", description = "매칭을 찾을 수 없음")
     })
     @PostMapping("/{matchId}/confirm")
-    public CommonResponse<Long> itemMatchConfirm(
-            @Parameter(description = "매치 id")
-            @PathVariable Long matchId) {
-        itemMatchService.confirmMatch(matchId);
-        return CommonResponse.success(matchId);
+    public CommonResponse<MatchConfirmResponse> itemMatchConfirm(
+            @PathVariable Long matchId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        return CommonResponse.success(itemMatchService.confirmMatch(matchId, principal.id()));
     }
 
     @Operation(summary = "매칭 거절", description = "유저가 아이템의 매칭을 거절합니다.")
@@ -57,9 +57,9 @@ public class ItemMatchController {
     })
     @PostMapping("/{matchId}/reject")
     public CommonResponse<Long> itemMatchReject(
-            @Parameter(description = "매치 id")
-            @PathVariable Long matchId) {
-        itemMatchService.rejectMatch(matchId);
+            @PathVariable Long matchId,
+            @AuthenticationPrincipal UserPrincipal principal) {
+        itemMatchService.rejectMatch(matchId, principal.id());
         return CommonResponse.success(matchId);
     }
     

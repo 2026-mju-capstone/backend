@@ -1,6 +1,6 @@
 package com.zoopick.server.repository;
 
-import com.zoopick.server.dto.match.ItemMatchProjection;
+import com.zoopick.server.dto.match.ItemMatchResultResponse;
 import com.zoopick.server.dto.match.SimilarItemProjection;
 import com.zoopick.server.entity.Item;
 import com.zoopick.server.entity.ItemMatch;
@@ -33,6 +33,7 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
         WHERE i.type <> CAST(:excludeType AS item_type)
           AND i.reporter_id <> :reporterId
           AND i.returned_at IS NULL
+          AND i.status IN ('IN_LOCKER', 'REPORTED')
           AND i.category = CAST(:category AS item_category)
         ORDER BY i.embedding <=> CAST(:embedding AS vector)
         LIMIT 100
@@ -49,30 +50,32 @@ public interface ItemMatchRepository extends JpaRepository<ItemMatch, Long> {
     // 중복 체크
     boolean existsByLostItemAndFoundItem(Item lostItem, Item foundItem);
 
-    @Query(value = """
-    SELECT 
-    m.id as matchId,                 -- 매칭 ID
-    f.id as foundItemId,             -- 매칭된 item ID
-    p.id as foundPostId,             -- 매칭된 post ID
-    p.title as foundPostTitle,       -- 매칭된 post 제목
-    f.location_name  as locationName,-- 매칭된 post 장소
-    f.image_url as foundImageUrl,    -- 매칭된 item 이미지 url
-    u.nickname as foundNickname,     -- 찾은 사람 닉네임
-    u.department as foundDepartment, -- 찾은 사람 과
-    m.score as score,                -- 매칭 점수
-    m.status as status               -- 현재 상태
-    FROM items i
-    JOIN item_matches m ON i.id = m.lost_item_id
-    JOIN items f ON m.found_item_id = f.id
-    JOIN item_posts p on f.id = p.item_id
-    JOIN users u ON u.id = f.reporter_id
-    WHERE i.type = 'LOST' -- 내가 잃어버린 것만
-    AND m.status IN ('CANDIDATE', 'NOTIFIED') -- 아직 매칭되지 않은 것들
-    AND i.reporter_id=:userId -- 내거만
-    AND f.reporter_id<>:userId -- found한 아이템이 내거면 안됨
-    ORDER BY m.score desc -- 내림차순으로 뽑음
-    """, nativeQuery = true)
-    List<ItemMatchProjection> itemMatchesByLostItem(@Param("userId") Long userId);
+    @Query("""
+    SELECT new com.zoopick.server.dto.match.ItemMatchResultResponse(
+        m.id, 
+        f.id, 
+        p.id, 
+        p.title, 
+        f.imageUrl, 
+        f.locationName, 
+        u.nickname, 
+        u.department, 
+        m.score, 
+        m.status,
+        f.reporter.id
+    )
+    FROM ItemMatch m
+    JOIN m.lostItem i
+    JOIN m.foundItem f
+    JOIN ItemPost p ON f.id = p.item.id
+    JOIN f.reporter u
+    WHERE CAST(i.type AS string) = 'LOST'
+      AND CAST(m.status AS string) IN ('CANDIDATE', 'NOTIFIED')
+      AND i.reporter.id = :userId
+      AND f.reporter.id <> :userId
+    ORDER BY m.score DESC
+""")
+    List<ItemMatchResultResponse> findMatchResultsByUserId(@Param("userId") Long userId);
 
     // 매칭 컨펌된 것 제외 모든 물품을 다 rejected
     @Modifying(clearAutomatically = true, flushAutomatically = true)
