@@ -59,4 +59,6 @@ public interface ItemPostRepository extends JpaRepository<ItemPost, Long>, JpaSp
 
     @Query("SELECT ip FROM ItemPost ip JOIN FETCH ip.item WHERE ip.item.id IN :itemIds")
     List<ItemPost> findAllByItemIdsWithItem(@Param("itemIds") List<Long> itemIds);
+
+    List<ItemPost> findAllByUser_IdAndItem_Type(Long userId, ItemType type);
 }

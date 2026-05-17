@@ -73,6 +73,12 @@ public class ItemPostService {
         return itemPostMapper.toItemPostRecord(itemPost);
     }
 
+    public List<ItemPostRecord> getMyItemPosts(long userId, ItemType type) {
+        return itemPostRepository.findAllByUser_IdAndItem_Type(userId, type).stream()
+                .map(itemPostMapper::toItemPostRecord)
+                .toList();
+    }
+
     public ItemOwnerInfoResult getOwnerInfo(long userId, long itemId) {
         Item item = itemRepository.findById(itemId)
                 .orElseThrow(() -> DataNotFoundException.from("물품", itemId));

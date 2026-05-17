@@ -2,6 +2,7 @@ package com.zoopick.server.controller;
 
 import com.zoopick.server.dto.CommonResponse;
 import com.zoopick.server.dto.item.*;
+import com.zoopick.server.entity.ItemType;
 import com.zoopick.server.security.UserPrincipal;
 import com.zoopick.server.service.ItemPostService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,6 +16,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import java.util.List;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -75,6 +77,21 @@ public class ItemPostController {
             @PathVariable long id
     ) {
         ItemPostRecord result = itemPostService.getItemPost(id);
+        return ResponseEntity.ok(CommonResponse.success(result));
+    }
+
+    @Operation(summary = "내 게시글 목록 조회", description = "현재 로그인한 사용자가 등록한 분실물(LOST) 또는 습득물(FOUND) 게시글 목록을 조회합니다.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "조회 성공"),
+            @ApiResponse(responseCode = "401", description = "인증 필요")
+    })
+    @GetMapping("/me")
+    public ResponseEntity<CommonResponse<List<ItemPostRecord>>> getMyItemPosts(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @Parameter(description = "조회할 게시글 타입 (LOST 또는 FOUND)", example = "LOST")
+            @RequestParam ItemType type
+    ) {
+        List<ItemPostRecord> result = itemPostService.getMyItemPosts(principal.id(), type);
         return ResponseEntity.ok(CommonResponse.success(result));
     }
 
