@@ -88,13 +88,12 @@ public class LockerService {
     private void handleRetrieval(Long userId, Locker locker) {
         Item stored = locker.getCurrentItem();
 
-        //권한 확인: 신고자 본인이거나, CONFIRMED 매칭된 소유자이거나, 채팅으로 합의한 분실자여야 함
-        boolean isReporter = stored.getReporter().getId().equals(userId);
+        //권한 확인: AI 매칭 CONFIRMED 소유자이거나, 채팅 RESOLVED_RETURNED된 분실자여야 함
         boolean isMatchedOwner = itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(
                 stored, userId, MatchStatus.CONFIRMED);
         boolean isChatOwner = chatRoomRepository.existsByItemAndOwnerIdAndStatus(stored, userId, ChatRoomStatus.RESOLVED_RETURNED);
 
-        if (!isReporter && !isMatchedOwner && !isChatOwner) {
+        if (!isMatchedOwner && !isChatOwner) {
             throw new ForbiddenException(
                     "물품을 회수할 권한이 없습니다.",
                     "User " + userId + " has no permission to retrieve item " + stored.getId());
