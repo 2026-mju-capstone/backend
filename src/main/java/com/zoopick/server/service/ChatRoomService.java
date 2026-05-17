@@ -232,6 +232,10 @@ public class ChatRoomService {
         chatRoom.setResolvedAt(LocalDateTime.now());
         chatRoomRepository.save(chatRoom);
 
+        if (reason == ChatRoomCloseReason.RETURNED && chatRoom.getItem() != null) {
+            chatRoom.getItem().setStatus(ItemStatus.RETURNED);
+        }
+
         SendNotificationCommand command = new SendNotificationCommand(
                 "Zoopick",
                 "채팅방이 닫혔습니다.",
