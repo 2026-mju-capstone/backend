@@ -24,7 +24,7 @@ class CreateCctvMatchEventListnerTest {
 
     @Mock NotificationService notificationService;
 
-    @InjectMocks CreateCctvMatchEventListner listner;
+    @InjectMocks CreateCctvMatchEventListner listener;
 
     User reporter;
     Item item;
@@ -63,7 +63,7 @@ class CreateCctvMatchEventListnerTest {
     @Test
     @DisplayName("매칭 이벤트 수신 시 신고자에게 FCM 알림을 전송한다")
     void handleMatchCreated_sendsNotificationToReporter() {
-        listner.handleMatchCreated(event);
+        listener.handleMatchCreated(event);
 
         then(notificationService).should().send(eq(reporter), any(SendNotificationCommand.class));
     }
@@ -73,7 +73,7 @@ class CreateCctvMatchEventListnerTest {
     void handleMatchCreated_notificationTitleContainsTheftSuspected() {
         ArgumentCaptor<SendNotificationCommand> captor = ArgumentCaptor.forClass(SendNotificationCommand.class);
 
-        listner.handleMatchCreated(event);
+        listener.handleMatchCreated(event);
 
         then(notificationService).should().send(eq(reporter), captor.capture());
         assertThat(captor.getValue().title()).isEqualTo("도난 의심");
@@ -84,7 +84,7 @@ class CreateCctvMatchEventListnerTest {
     void handleMatchCreated_notificationBodyContainsTitleAndRoom() {
         ArgumentCaptor<SendNotificationCommand> captor = ArgumentCaptor.forClass(SendNotificationCommand.class);
 
-        listner.handleMatchCreated(event);
+        listener.handleMatchCreated(event);
 
         then(notificationService).should().send(eq(reporter), captor.capture());
         assertThat(captor.getValue().body())
