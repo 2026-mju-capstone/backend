@@ -44,3 +44,4 @@ http/test/
 
 ### Mac ###
 .DS_Store
+.claude/

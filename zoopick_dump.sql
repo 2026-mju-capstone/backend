@@ -152,7 +152,8 @@ CREATE TYPE zoopick.item_status AS ENUM (
     'IN_LOCKER',
     'IN_TRANSIT',
     'RETRIEVING',
-    'RETURNED'
+    'RETURNED',
+    'THEFT_CONFIRMED'
 );
 
 

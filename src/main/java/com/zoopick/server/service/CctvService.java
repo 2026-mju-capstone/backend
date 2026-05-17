@@ -330,6 +330,7 @@ public class CctvService {
         if (request.getReviewStatus() == DetectionReviewStatus.CONFIRMED_SELF) {
             Item lostItem = cctvDetectionMatch.getItem();
             lostItem.theftSuspected(LocalDateTime.now());
+            lostItem.setStatus(ItemStatus.THEFT_CONFIRMED);
             cctvDetectionMatchRepository.rejectOtherPendingMatches( // 나머지 reject 처리
                     lostItem.getId(),
                     matchId,

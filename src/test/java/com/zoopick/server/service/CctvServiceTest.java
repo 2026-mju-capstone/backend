@@ -234,6 +234,7 @@ class CctvServiceTest {
                     new CctvDetectionReviewRequest(DetectionReviewStatus.CONFIRMED_SELF));
 
             assertThat(item.getTheftSuspectedAt()).isNotNull();
+            assertThat(item.getStatus()).isEqualTo(ItemStatus.THEFT_CONFIRMED);
             then(cctvDetectionMatchRepository).should().rejectOtherPendingMatches(
                     eq(item.getId()), eq(100L),
                     eq(DetectionReviewStatus.REJECTED_SELF),
