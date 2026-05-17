@@ -92,7 +92,7 @@ public class LockerService {
         boolean isReporter = stored.getReporter().getId().equals(userId);
         boolean isMatchedOwner = itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(
                 stored, userId, MatchStatus.CONFIRMED);
-        boolean isChatOwner = chatRoomRepository.existsByItemAndOwnerId(stored, userId);
+        boolean isChatOwner = chatRoomRepository.existsByItemAndOwnerIdAndStatus(stored, userId, ChatRoomStatus.RESOLVED_RETURNED);
 
         if (!isReporter && !isMatchedOwner && !isChatOwner) {
             throw new ForbiddenException(
