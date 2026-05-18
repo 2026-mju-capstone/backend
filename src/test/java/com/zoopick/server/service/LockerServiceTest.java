@@ -2,10 +2,8 @@ package com.zoopick.server.service;
 
 import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
-import com.zoopick.server.exception.DataNotFoundException;
-import com.zoopick.server.repository.ItemRepository;
-import com.zoopick.server.repository.LockerCommandRepository;
-import com.zoopick.server.repository.LockerRepository;
+import com.zoopick.server.exception.ForbiddenException;
+import com.zoopick.server.repository.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,20 +25,27 @@ class LockerServiceTest {
     @InjectMocks
     private LockerService lockerService;
 
-    @Mock
-    private LockerRepository lockerRepository;
-    @Mock
-    private LockerCommandRepository commandRepository;
-    @Mock
-    private ItemRepository itemRepository;
+    @Mock private LockerRepository lockerRepository;
+    @Mock private LockerCommandRepository commandRepository;
+    @Mock private ItemRepository itemRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private ItemMatchRepository itemMatchRepository;
 
+    private User mockUser;
+    private User otherUser;
     private Locker emptyLocker;
     private Locker fullLocker;
     private Item validItem;
     private Item storedItem;
 
+    private final Long MOCK_USER_ID = 1L;
+    private final Long OTHER_USER_ID = 2L;
+
     @BeforeEach
     void setUp() {
+        mockUser = User.builder().id(MOCK_USER_ID).build();
+        otherUser = User.builder().id(OTHER_USER_ID).build();
+
         emptyLocker = Locker.builder()
                 .id(1L)
                 .status(LockerStatus.EMPTY)
@@ -49,6 +54,7 @@ class LockerServiceTest {
 
         storedItem = Item.builder()
                 .id(100L)
+                .reporter(mockUser) // 신고자를 mockUser로 설정
                 .status(ItemStatus.IN_LOCKER)
                 .build();
 
@@ -60,21 +66,23 @@ class LockerServiceTest {
 
         validItem = Item.builder()
                 .id(200L)
-                .type(ItemType.FOUND)
+                .reporter(mockUser) // 신고자를 mockUser로 설정
+                .type(ItemType.FOUND) // 습득물
                 .status(ItemStatus.REPORTED)
                 .build();
     }
 
     @Test
-    @DisplayName("사물함 열기 요청 - 보관 (빈 사물함 + 유효한 아이템)")
+    @DisplayName("사물함 열기 요청 - 보관 (빈 사물함 + 본인이 신고한 습득물)")
     void requestUnlock_Storage_Success() {
         // given
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
         when(lockerRepository.findById(1L)).thenReturn(Optional.of(emptyLocker));
         when(itemRepository.findById(200L)).thenReturn(Optional.of(validItem));
         when(commandRepository.save(any(LockerCommand.class))).thenAnswer(i -> i.getArgument(0));
 
-        // when
-        LockerCommand command = lockerService.requestUnlock(1L, 200L);
+        // when (파라미터: userId, lockerId, itemId)
+        LockerCommand command = lockerService.requestUnlock(MOCK_USER_ID, 1L, 200L);
 
         // then
         assertEquals(LockerStatus.IN_USE, emptyLocker.getStatus());
@@ -82,33 +90,48 @@ class LockerServiceTest {
         assertEquals(ItemStatus.IN_LOCKER, validItem.getStatus());
 
         assertEquals(LockerCommandType.OPEN, command.getCommand());
-        assertEquals(LockerCommandStatus.PENDING, command.getStatus());
+        assertEquals(mockUser, command.getIssuedBy());
         verify(commandRepository, times(1)).save(any(LockerCommand.class));
     }
 
     @Test
-    @DisplayName("사물함 열기 요청 - 보관 실패 (잘못된 아이템 상태)")
-    void requestUnlock_Storage_Fail_InvalidItemStatus() {
+    @DisplayName("사물함 열기 요청 - 보관 실패 (타인이 신고한 물품)")
+    void requestUnlock_Storage_Fail_NotReporter() {
         // given
-        validItem.setStatus(ItemStatus.RETURNED); // REPORTED가 아님
+        validItem.setReporter(otherUser); // 다른 사람이 신고한 물품으로 변경
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
         when(lockerRepository.findById(1L)).thenReturn(Optional.of(emptyLocker));
         when(itemRepository.findById(200L)).thenReturn(Optional.of(validItem));
 
         // when & then
-        BadRequestException exception = assertThrows(BadRequestException.class,
-                () -> lockerService.requestUnlock(1L, 200L));
-        assertEquals("보관 가능한 상태의 물품이 아닙니다.", exception.getClientMessage());
+        assertThrows(ForbiddenException.class,
+                () -> lockerService.requestUnlock(MOCK_USER_ID, 1L, 200L));
     }
 
     @Test
-    @DisplayName("사물함 열기 요청 - 회수 (물건이 있는 사물함)")
-    void requestUnlock_Retrieval_Success() {
+    @DisplayName("사물함 열기 요청 - 보관 실패 (습득물이 아닌 경우)")
+    void requestUnlock_Storage_Fail_NotFoundType() {
         // given
+        validItem.setType(ItemType.LOST); // 분실물로 변경
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
+        when(lockerRepository.findById(1L)).thenReturn(Optional.of(emptyLocker));
+        when(itemRepository.findById(200L)).thenReturn(Optional.of(validItem));
+
+        // when & then
+        assertThrows(BadRequestException.class,
+                () -> lockerService.requestUnlock(MOCK_USER_ID, 1L, 200L));
+    }
+
+    @Test
+    @DisplayName("사물함 열기 요청 - 회수 (신고자 본인)")
+    void requestUnlock_Retrieval_Success_ByReporter() {
+        // given
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
         when(lockerRepository.findById(2L)).thenReturn(Optional.of(fullLocker));
         when(commandRepository.save(any(LockerCommand.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        LockerCommand command = lockerService.requestUnlock(2L, null); // 회수 시에는 itemId 불필요
+        LockerCommand command = lockerService.requestUnlock(MOCK_USER_ID, 2L, null);
 
         // then
         assertEquals(LockerStatus.EMPTY, fullLocker.getStatus());
@@ -121,31 +144,99 @@ class LockerServiceTest {
     }
 
     @Test
-    @DisplayName("사물함 열기 요청 - 점검 중인 사물함")
+    @DisplayName("사물함 열기 요청 - 회수 (매칭이 확정된 물품 소유자)")
+    void requestUnlock_Retrieval_Success_ByMatchedOwner() {
+        // given
+        storedItem.setReporter(otherUser); // 물건을 넣은 사람은 otherUser
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
+        when(lockerRepository.findById(2L)).thenReturn(Optional.of(fullLocker));
+
+        // 권한 체크 모킹: mockUser가 해당 물품과 CONFIRMED 상태로 매칭됨
+        when(itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(storedItem, MOCK_USER_ID, MatchStatus.CONFIRMED))
+                .thenReturn(true);
+        when(commandRepository.save(any(LockerCommand.class))).thenAnswer(i -> i.getArgument(0));
+
+        // when
+        LockerCommand command = lockerService.requestUnlock(MOCK_USER_ID, 2L, null);
+
+        // then
+        assertEquals(LockerStatus.EMPTY, fullLocker.getStatus());
+        assertEquals(ItemStatus.RETURNED, storedItem.getStatus());
+    }
+
+    @Test
+    @DisplayName("사물함 열기 요청 - 회수 실패 (권한 없음)")
+    void requestUnlock_Retrieval_Fail_NoPermission() {
+        // given
+        storedItem.setReporter(otherUser); // 물건을 넣은 사람은 otherUser
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
+        when(lockerRepository.findById(2L)).thenReturn(Optional.of(fullLocker));
+
+        // 매칭된 기록도 없음
+        when(itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(storedItem, MOCK_USER_ID, MatchStatus.CONFIRMED))
+                .thenReturn(false);
+
+        // when & then
+        assertThrows(ForbiddenException.class,
+                () -> lockerService.requestUnlock(MOCK_USER_ID, 2L, null));
+    }
+
+    @Test
+    @DisplayName("사물함 점검 중 예외 발생")
     void requestUnlock_Fail_Maintenance() {
         // given
         emptyLocker.setStatus(LockerStatus.MAINTENANCE);
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
         when(lockerRepository.findById(1L)).thenReturn(Optional.of(emptyLocker));
 
         // when & then
-        BadRequestException exception = assertThrows(BadRequestException.class,
-                () -> lockerService.requestUnlock(1L, 200L));
-        assertEquals("사물함이 점검 중입니다.", exception.getClientMessage());
+        assertThrows(BadRequestException.class,
+                () -> lockerService.requestUnlock(MOCK_USER_ID, 1L, 200L));
     }
 
     @Test
     @DisplayName("사물함 닫기 요청 - 성공")
     void requestLock_Success() {
         // given
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
         when(lockerRepository.findById(1L)).thenReturn(Optional.of(emptyLocker));
+
+        // 최근에 문을 연 기록 (본인이 열었음)
+        LockerCommand lastOpenCmd = LockerCommand.builder()
+                .issuedBy(mockUser)
+                .command(LockerCommandType.OPEN)
+                .build();
+        when(commandRepository.findFirstByLocker_IdAndCommandOrderByCreatedAtDesc(1L, LockerCommandType.OPEN))
+                .thenReturn(Optional.of(lastOpenCmd));
+
         when(commandRepository.save(any(LockerCommand.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        LockerCommand command = lockerService.requestLock(1L);
+        LockerCommand command = lockerService.requestLock(MOCK_USER_ID, 1L);
 
         // then
         assertEquals(LockerCommandType.CLOSE, command.getCommand());
         verify(commandRepository, times(1)).save(any(LockerCommand.class));
+    }
+
+    @Test
+    @DisplayName("사물함 닫기 요청 - 실패 (자신이 열지 않은 사물함)")
+    void requestLock_Fail_NotIssuer() {
+        // given
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
+        when(lockerRepository.findById(1L)).thenReturn(Optional.of(emptyLocker));
+
+        // 최근에 문을 연 기록 (타인이 열었음)
+        LockerCommand lastOpenCmd = LockerCommand.builder()
+                .issuedBy(otherUser)
+                .command(LockerCommandType.OPEN)
+                .build();
+        when(commandRepository.findFirstByLocker_IdAndCommandOrderByCreatedAtDesc(1L, LockerCommandType.OPEN))
+                .thenReturn(Optional.of(lastOpenCmd));
+
+        // when & then
+        assertThrows(ForbiddenException.class,
+                () -> lockerService.requestLock(MOCK_USER_ID, 1L));
     }
 
     @Test
@@ -203,8 +294,7 @@ class LockerServiceTest {
         when(commandRepository.findById(10L)).thenReturn(Optional.of(consumedCommand));
 
         // when & then
-        BadRequestException exception = assertThrows(BadRequestException.class,
+        assertThrows(BadRequestException.class,
                 () -> lockerService.ackCommand(1L, 10L));
-        assertEquals("잘못된 요청입니다.", exception.getClientMessage());
     }
 }

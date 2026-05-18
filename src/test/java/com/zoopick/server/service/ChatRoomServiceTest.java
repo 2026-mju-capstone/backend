@@ -1,6 +1,5 @@
 package com.zoopick.server.service;
 
-import com.google.firebase.messaging.FirebaseMessagingException;
 import com.zoopick.server.dto.chat.*;
 import com.zoopick.server.entity.*;
 import com.zoopick.server.exception.BadRequestException;
@@ -63,8 +62,8 @@ class ChatRoomServiceTest {
         openChatRoom = ChatRoom.builder()
                 .id(100L)
                 .item(foundItem)
-                .owner(requester)
-                .finder(counterpart)
+                .owner(requester)     // 1L
+                .finder(counterpart)  // 2L
                 .status(ChatRoomStatus.OPEN)
                 .build();
     }
@@ -118,7 +117,6 @@ class ChatRoomServiceTest {
         when(userRepository.findByIdOrThrow(2L)).thenReturn(counterpart);
         when(chatRoomRepository.findByParticipantIdAndItemIdIs(1L, 10L)).thenReturn(Optional.empty());
 
-        // save 될 때의 객체를 캡처하거나, 그냥 아무 객체나 반환하도록 모킹
         when(chatRoomRepository.save(any(ChatRoom.class))).thenReturn(openChatRoom);
         when(chatRoomMapper.toChatRoomRecord(openChatRoom)).thenReturn(mockRecord);
 
@@ -132,7 +130,7 @@ class ChatRoomServiceTest {
 
     @Test
     @DisplayName("메시지 전송 - 참여자가 아닌 경우 예외 발생")
-    void sendMessage_fail_whenNotParticipant() {
+    void sendMessageWithNotification_fail_whenNotParticipant() {
         // given
         User stranger = User.builder().id(3L).build();
         when(userRepository.findByIdOrThrow(3L)).thenReturn(stranger);
@@ -140,33 +138,32 @@ class ChatRoomServiceTest {
 
         // when & then
         assertThrows(BadRequestException.class,
-                () -> chatRoomService.sendMessage(3L, 100L, "Hello!"));
+                () -> chatRoomService.sendMessageWithNotification(3L, 100L, "Hello!"));
     }
 
     @Test
     @DisplayName("메시지 전송 - 닫힌 방에 전송 시 예외 발생")
-    void sendMessage_fail_whenChatRoomIsClosed() {
-        // given: 방 상태를 RESOLVED_RETURNED(종료)로 설정
+    void sendMessageWithNotification_fail_whenChatRoomIsClosed() {
+        // given
         openChatRoom.setStatus(ChatRoomStatus.RESOLVED_RETURNED);
         when(userRepository.findByIdOrThrow(1L)).thenReturn(requester);
         when(chatRoomRepository.findByIdOrThrow(100L)).thenReturn(openChatRoom);
 
         // when & then
         assertThrows(BadRequestException.class,
-                () -> chatRoomService.sendMessage(1L, 100L, "Hello!"));
+                () -> chatRoomService.sendMessageWithNotification(1L, 100L, "Hello!"));
     }
 
-
     @Test
-    @DisplayName("메시지 전송 - 성공 시 메시지 저장 및 알림 전송")
-    void sendMessage_success() throws FirebaseMessagingException {
+    @DisplayName("메시지 전송 - 성공 시 메시지 저장 및 알림 전송 (sendMessageWithNotification)")
+    void sendMessageWithNotification_success() {
         // given
         String message = "안녕하세요!";
         when(userRepository.findByIdOrThrow(1L)).thenReturn(requester);
         when(chatRoomRepository.findByIdOrThrow(100L)).thenReturn(openChatRoom);
 
-        // when
-        chatRoomService.sendMessage(1L, 100L, message);
+        // when: 알림 발송이 포함된 public 메서드를 호출합니다.
+        chatRoomService.sendMessageWithNotification(1L, 100L, message);
 
         // then
         verify(chatMessageRepository, times(1)).save(any(ChatMessage.class));
@@ -175,15 +172,15 @@ class ChatRoomServiceTest {
 
     @Test
     @DisplayName("채팅방 닫기 - 성공적으로 닫히고 알림 전송")
-    void closeChatRoom_success() throws FirebaseMessagingException {
+    void closeChatRoom_success() {
         // given
         when(userRepository.findByIdOrThrow(1L)).thenReturn(requester);
         when(chatRoomRepository.findByIdOrThrow(100L)).thenReturn(openChatRoom);
 
-        // when: ChatRoomCloseReason.RETURNED 사용
+        // when
         chatRoomService.closeChatRoom(1L, 100L, ChatRoomCloseReason.RETURNED);
 
-        // then: 상태가 RESOLVED_RETURNED 로 변경되었는지 검증
+        // then
         assertEquals(ChatRoomStatus.RESOLVED_RETURNED, openChatRoom.getStatus());
         assertNotNull(openChatRoom.getResolvedAt());
         verify(chatRoomRepository, times(1)).save(openChatRoom);
@@ -192,8 +189,8 @@ class ChatRoomServiceTest {
 
     @Test
     @DisplayName("채팅방 다시 열기 - 성공적으로 열리고 알림 전송")
-    void reopenChatRoom_success() throws FirebaseMessagingException {
-        // given: 닫힌 방으로 설정 (RESOLVED_RETURNED)
+    void reopenChatRoom_success() {
+        // given
         openChatRoom.setStatus(ChatRoomStatus.RESOLVED_RETURNED);
         openChatRoom.setResolvedAt(java.time.LocalDateTime.now());
 
