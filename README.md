@@ -193,12 +193,17 @@ JWT_SECRET=your_jwt_secret_key_at_least_32_characters
 # 외부 연동
 FIREBASE_ACCOUNT_KEY_PATH=path/to/firebase-adminsdk.json
 FASTAPI_BASE_URL=http://localhost:8000
+ZOOPICK_CALLBACK_URL=http://localhost:8080
 
-# 내부 콜백 인증 토큰 (AI 서버와 공유)
-INTERNAL_CALLBACK_TOKEN=shared_secret_token
+# 저장소 및 파일 경로 (절대 경로 권장)
+# ZOOPICK_CCTV_STORAGE_ABSOLUTE_DIR은 /storage/** URL 서빙을 위한 로컬 절대 경로입니다.
+ZOOPICK_CCTV_STORAGE_ABSOLUTE_DIR=/absolute_path/to/storage/
+ZOOPICK_UPLOAD_IMAGE_DIR=uploads/images
+ZOOPICK_CCTV_SNAPSHOT_DIR=storage/cctv/snapshots
 
-# 파일 저장 경로
-FILE_STORAGE_ROOT=/var/mju-lostfound
+# 기타 설정
+ZOOPICK_BASE_URL=http://localhost:8080
+
 ```
 
 ### 2. 데이터베이스 초기화
