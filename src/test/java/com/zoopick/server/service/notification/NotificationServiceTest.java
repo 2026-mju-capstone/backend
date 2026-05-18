@@ -89,7 +89,7 @@ class NotificationServiceTest {
         // then
         assertThat(result).isEqualTo("100");
         verify(notificationRepository, times(1)).save(any(ZoopickNotification.class));
-        verify(eventPublisher, times(1)).publishEvent(any(Object.class)); // 💡 Firebase 정적 모킹 대신 이벤트 발행 검증
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class));
     }
 
     @Test
