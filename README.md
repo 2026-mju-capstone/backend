@@ -251,32 +251,35 @@ java -jar target/zoopick-server-0.0.1.jar
 | Arduino | /api/lockers/{id}/pending, /ack | Device Token | 사물함 명령 폴링 |
 | 내부 콜백 | /api/internal/cctv/* | Internal Token | AI 서버 콜백 (detection/completed/failed/progress) |
 
-전체 60여 개 엔드포인트의 상세 명세는 [상세설계 보고서 부록 B] 참조.
-
 ---
 
 ## 프로젝트 구조
-
+```text
+├── java
+│   └── com
+│       └── zoopick
+│           └── server
+│               ├── config          # 전역 설정 (Spring, CORS, WebSocket 등)
+│               ├── controller      # REST API 엔드포인트 및 요청 라우팅
+│               ├── dto             # 계층 간 데이터 전달 객체 (하위 도메인 생략)
+│               ├── entity          # DB 테이블 매핑을 위한 도메인 모델
+│               ├── exception       # 커스텀 예외 및 글로벌 에러 처리 로직
+│               ├── qr              # QR 코드 생성 및 검증 등 특화 로직
+│               ├── repository      # 데이터베이스 및 캐시 접근 계층
+│               ├── security        # 인증/인가 및 권한 제어 (JWT 등)
+│               ├── service         # 핵심 비즈니스 로직 (하위 도메인 생략)
+│               └── websocket       # 실시간 양방향 통신 처리
+└── resources
+    ├── static              
+    └── templates           
+```
 
 ---
 
 ## 관련 레포지토리
 
-- **Frontend (React Native)**: [zoopick-app] (별도 레포)
-- **AI Server (FastAPI)**: [zoopick-ai] (별도 레포)
-- **Firmware (Arduino)**: [zoopick-firmware] (별도 레포)
+- **Frontend (React Native)**: [front] (별도 레포)
+- **AI Server (FastAPI)**: [ai] (별도 레포)
+- **Firmware (Arduino)**: [iotLocker] (별도 레포)
 
 ---
-
-## 문서
-
-- **상세설계 보고서**: docs/zoopick-design-report.pdf (캡스톤 보고서)
-- **ADR (의사결정 기록)**: 상세설계 보고서 부록 D
-- **API 명세 요약**: 상세설계 보고서 부록 B
-
----
-
-## 라이센스 및 소속
-
-본 프로젝트는 명지대학교 자연캠퍼스 컴퓨터공학과 캡스톤 설계 산출물입니다.
-교육·연구 목적으로 자유롭게 활용 가능합니다.
