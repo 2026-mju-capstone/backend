@@ -56,11 +56,41 @@ class TimetableServiceTest {
                 .isPrimary(true)
                 .build();
 
-        Building building = Building.builder().code("S1").name("명진당").build();
+        Building building = Building.builder().code("S1").name("함박관").build();
         Room room = Room.builder().name("S1111").building(building).build();
 
         course1 = Course.builder().id(101L).courseName("글쓰기").room(room).build();
-        course2 = Course.builder().id(102L).courseName("데이터베이스").room(room).build();
+        course2 = Course.builder().id(102L).courseName("영어1").room(room).build();
+    }
+
+    @Test
+    @DisplayName("특정 학기 시간표 목록 조회 - 성공")
+    void getTimetableGroups_Success() {
+        // given
+        when(userRepository.findBySchoolEmailOrThrow(EMAIL)).thenReturn(user);
+        when(groupRepository.findAllByUserAndYearAndSemester(user, 2026, 1)).thenReturn(List.of(group));
+
+        // when
+        List<TimetableGroupResponse> responses = timetableService.getTimetableGroups(EMAIL, 2026, 1);
+
+        // then
+        assertEquals(1, responses.size());
+        assertEquals("1학기 시간표", responses.get(0).name());
+    }
+
+    @Test
+    @DisplayName("내 모든 시간표 목록 조회 - 성공")
+    void getMyTimetableGroups_Success() {
+        // given
+        when(userRepository.findBySchoolEmailOrThrow(EMAIL)).thenReturn(user);
+        when(groupRepository.findAllByUserOrderByYearDescSemesterDesc(user)).thenReturn(List.of(group));
+
+        // when
+        List<TimetableGroupResponse> responses = timetableService.getMyTimetableGroups(EMAIL);
+
+        // then
+        assertEquals(1, responses.size());
+        assertEquals(2026, responses.get(0).year());
     }
 
     @Test
@@ -77,7 +107,7 @@ class TimetableServiceTest {
         TimetableGroupResponse response = timetableService.createTimetable(EMAIL, request);
 
         // then
-        assertTrue(response.isPrimary()); // record 이므로 isPrimary() 호출 가능
+        assertTrue(response.isPrimary());
         verify(groupRepository, times(1)).save(any(TimetableGroup.class));
     }
 
@@ -112,6 +142,28 @@ class TimetableServiceTest {
     }
 
     @Test
+    @DisplayName("시간표 상세 조회 - 성공")
+    void getTimetableDetails_Success() {
+        // given
+        Timetable t1 = Timetable.builder().course(course1).color("#FFF").build();
+        CourseSchedule schedule1 = mock(CourseSchedule.class);
+        when(schedule1.getCourse()).thenReturn(course1);
+
+        when(userRepository.findBySchoolEmailOrThrow(EMAIL)).thenReturn(user);
+        when(groupRepository.findByIdAndUser(10L, user)).thenReturn(Optional.of(group));
+        when(timetableRepository.findAllByTimetableGroup(group)).thenReturn(List.of(t1));
+        when(courseScheduleRepository.findAllByCourseIn(List.of(course1))).thenReturn(List.of(schedule1));
+
+        // when
+        List<TimetableCourseRecord> details = timetableService.getTimetableDetails(EMAIL, 10L);
+
+        // then
+        assertEquals(1, details.size());
+        assertEquals(course1.getId(), details.get(0).getCourseId());
+        assertEquals("함박관", details.get(0).getBuildingName());
+    }
+
+    @Test
     @DisplayName("시간표 동기화 - 성공 (시간표 덮어쓰기 및 중복 없음)")
     void syncTimetable_Success() {
         // given
@@ -122,15 +174,15 @@ class TimetableServiceTest {
         when(userRepository.findBySchoolEmailOrThrow(EMAIL)).thenReturn(user);
         when(groupRepository.findByIdAndUser(10L, user)).thenReturn(Optional.of(group));
 
-        when(courseRepository.findById(101L)).thenReturn(Optional.of(course1));
-        when(courseRepository.findById(102L)).thenReturn(Optional.of(course2));
+        // 다건 조회 모킹
+        when(courseRepository.findAllById(anyList())).thenReturn(List.of(course1, course2));
 
         CourseSchedule schedule1 = mock(CourseSchedule.class);
         when(schedule1.getCourse()).thenReturn(course1);
         CourseSchedule schedule2 = mock(CourseSchedule.class);
         when(schedule2.getCourse()).thenReturn(course2);
 
-        // 시간 겹치지 않음
+        // 시간 겹치지 않음 모킹
         when(schedule1.hasCollisionWith(schedule2)).thenReturn(false);
         when(courseScheduleRepository.findAllByCourseIdIn(anyList())).thenReturn(List.of(schedule1, schedule2));
 
@@ -154,8 +206,8 @@ class TimetableServiceTest {
         when(userRepository.findBySchoolEmailOrThrow(EMAIL)).thenReturn(user);
         when(groupRepository.findByIdAndUser(10L, user)).thenReturn(Optional.of(group));
 
-        when(courseRepository.findById(101L)).thenReturn(Optional.of(course1));
-        when(courseRepository.findById(102L)).thenReturn(Optional.of(course2));
+        // 다건 조회 모킹
+        when(courseRepository.findAllById(anyList())).thenReturn(List.of(course1, course2));
 
         CourseSchedule schedule1 = mock(CourseSchedule.class);
         when(schedule1.getCourse()).thenReturn(course1);
@@ -175,25 +227,39 @@ class TimetableServiceTest {
     }
 
     @Test
-    @DisplayName("시간표 상세 조회 - 성공 (Lombok Getter 사용)")
-    void getTimetableDetails_Success() {
+    @DisplayName("시간표 삭제 - 성공")
+    void deleteTimetableGroup_Success() {
         // given
-        Timetable t1 = Timetable.builder().course(course1).color("#FFF").build();
+        when(userRepository.findBySchoolEmailOrThrow(EMAIL)).thenReturn(user);
+        when(groupRepository.findByIdAndUser(10L, user)).thenReturn(Optional.of(group));
+
+        // when
+        timetableService.deleteTimetableGroup(EMAIL, 10L);
+
+        // then
+        verify(timetableRepository, times(1)).deleteAllByTimetableGroup(group);
+        verify(groupRepository, times(1)).delete(group);
+    }
+
+    @Test
+    @DisplayName("강의 검색 (페이지네이션) - 성공")
+    void searchCourses_Success() {
+        // given
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Course> coursePage = new PageImpl<>(List.of(course1, course2), pageable, 2);
+
         CourseSchedule schedule1 = mock(CourseSchedule.class);
         when(schedule1.getCourse()).thenReturn(course1);
 
-        when(userRepository.findBySchoolEmailOrThrow(EMAIL)).thenReturn(user);
-        when(groupRepository.findByIdAndUser(10L, user)).thenReturn(Optional.of(group));
-        when(timetableRepository.findAllByTimetableGroup(group)).thenReturn(List.of(t1));
-        when(courseScheduleRepository.findAllByCourseIn(List.of(course1))).thenReturn(List.of(schedule1));
+        when(courseRepository.searchCourses(2026, 1, "데이터", pageable)).thenReturn(coursePage);
+        when(courseScheduleRepository.findAllByCourseIn(anyList())).thenReturn(List.of(schedule1));
 
         // when
-        List<TimetableCourseRecord> details = timetableService.getTimetableDetails(EMAIL, 10L);
+        Page<TimetableCourseRecord> result = timetableService.searchCourses(2026, 1, "데이터", pageable);
 
         // then
-        assertEquals(1, details.size());
-
-        assertEquals(course1.getId(), details.get(0).getCourseId());
-        assertEquals("명진당", details.get(0).getBuildingName());
+        assertEquals(2, result.getContent().size());
+        assertEquals(course1.getId(), result.getContent().get(0).getCourseId());
+        assertEquals("함박관", result.getContent().get(0).getBuildingName());
     }
 }

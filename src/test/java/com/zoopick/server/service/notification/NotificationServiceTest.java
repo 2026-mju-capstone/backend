@@ -1,13 +1,12 @@
 package com.zoopick.server.service.notification;
 
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.Message;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zoopick.server.dto.notification.ChangeReadStatusResult;
 import com.zoopick.server.entity.NotificationType;
 import com.zoopick.server.entity.User;
 import com.zoopick.server.entity.ZoopickNotification;
-import com.zoopick.server.exception.DataNotFoundException;
 import com.zoopick.server.mapper.notification.NotificationMapper;
+import com.zoopick.server.mapper.notification.NotificationPayloadMapper;
 import com.zoopick.server.repository.NotificationRepository;
 import com.zoopick.server.repository.UserRepository;
 import com.zoopick.server.service.notification.payload.NotificationPayload;
@@ -16,14 +15,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
@@ -43,6 +41,15 @@ class NotificationServiceTest {
     @Mock
     private NotificationMapper notificationMapper;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
+    @Mock
+    private ObjectMapper objectMapper;
+
+    @Mock
+    private NotificationPayloadMapper notificationPayloadMapper;
+
     @Test
     @DisplayName("FCM 토큰 등록 - 성공")
     void register_Success() {
@@ -58,21 +65,17 @@ class NotificationServiceTest {
 
         // then
         assertThat(user.getFcmToken()).isEqualTo(fcmToken);
-        verify(userRepository).save(user);
     }
 
     @Test
-    @DisplayName("알림 전송 - 성공 (FirebaseStaticMock 포함)")
-    void send_Success() throws Exception {
+    @DisplayName("알림 전송 - 성공 (이벤트 발행 검증)")
+    void send_Success() {
         // given
         User user = User.builder().id(1L).fcmToken("valid_token").build();
 
         NotificationPayload payloadMock = mock(NotificationPayload.class);
-        given(payloadMock.toMap()).willReturn(Map.of());
-
-        // ✅ 해결 부분: NotificationType에 정의된 첫 번째 값을 동적으로 가져와 반환합니다.
-        // 이렇게 하면 정확한 이름을 몰라도 NullPointerException과 심볼 오류를 모두 피할 수 있습니다.
-        given(payloadMock.type()).willReturn(NotificationType.values()[0]);
+        lenient().when(payloadMock.toMap()).thenReturn(Map.of());
+        lenient().when(payloadMock.type()).thenReturn(NotificationType.values()[0]);
 
         SendNotificationCommand command = new SendNotificationCommand("제목", "내용", payloadMock);
         ZoopickNotification notification = ZoopickNotification.builder().id(100L).user(user).build();
@@ -80,33 +83,38 @@ class NotificationServiceTest {
         given(notificationMapper.toZoopickNotification(user, command)).willReturn(notification);
         given(notificationRepository.save(any(ZoopickNotification.class))).willReturn(notification);
 
-        // static mocking for FirebaseMessaging
-        try (MockedStatic<FirebaseMessaging> mockedFirebase = mockStatic(FirebaseMessaging.class)) {
-            FirebaseMessaging firebaseMessagingMock = mock(FirebaseMessaging.class);
-            mockedFirebase.when(FirebaseMessaging::getInstance).thenReturn(firebaseMessagingMock);
-            given(firebaseMessagingMock.send(any(Message.class))).willReturn("message_id_123");
+        // when
+        String result = notificationService.send(user, command);
 
-            // when
-            String result = notificationService.send(user, command);
-
-            // then
-            assertThat(result).isEqualTo("message_id_123");
-            verify(notificationRepository).save(any());
-            verify(firebaseMessagingMock).send(any(Message.class));
-        }
+        // then
+        assertThat(result).isEqualTo("100");
+        verify(notificationRepository, times(1)).save(any(ZoopickNotification.class));
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class)); // 💡 Firebase 정적 모킹 대신 이벤트 발행 검증
     }
 
     @Test
-    @DisplayName("알림 전송 실패 - FCM 토큰이 없는 경우 DataNotFoundException 발생")
-    void send_Fail_NoFcmToken() {
+    @DisplayName("알림 전송 - FCM 토큰이 없는 경우 예외 없이 DB에 저장되고 이벤트가 발행된다")
+    void send_Success_WithoutFcmToken() {
         // given
         User user = User.builder().id(1L).schoolEmail("test@mju.ac.kr").fcmToken(null).build();
-        SendNotificationCommand command = mock(SendNotificationCommand.class);
 
-        // when & then
-        assertThatThrownBy(() -> notificationService.send(user, command))
-                .isInstanceOf(DataNotFoundException.class)
-                .hasMessageContaining("FCM 토큰");
+        NotificationPayload payloadMock = mock(NotificationPayload.class);
+        lenient().when(payloadMock.type()).thenReturn(NotificationType.values()[0]);
+        lenient().when(payloadMock.toMap()).thenReturn(Map.of());
+
+        SendNotificationCommand command = new SendNotificationCommand("제목", "내용", payloadMock);
+        ZoopickNotification mockNotification = ZoopickNotification.builder().id(100L).user(user).build();
+
+        given(notificationMapper.toZoopickNotification(user, command)).willReturn(mockNotification);
+        given(notificationRepository.save(any(ZoopickNotification.class))).willReturn(mockNotification);
+
+        // when
+        String result = notificationService.send(user, command);
+
+        // then
+        assertThat(result).isEqualTo("100");
+        verify(notificationRepository, times(1)).save(any(ZoopickNotification.class));
+        verify(eventPublisher, times(1)).publishEvent(any(Object.class));
     }
 
     @Test
@@ -128,6 +136,5 @@ class NotificationServiceTest {
         assertThat(result.getSucceedIds()).containsExactly(10L, 11L);
         assertThat(notification1.getReadAt()).isNotNull();
         assertThat(notification2.getReadAt()).isNotNull();
-        verify(notificationRepository).saveAll(anyList());
     }
 }

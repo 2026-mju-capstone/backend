@@ -11,6 +11,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -88,6 +89,7 @@ class ItemPostServiceTest {
 
         when(userRepository.findByIdOrThrow(1L)).thenReturn(user);
         when(buildingRepository.findByIdOrThrow(10L)).thenReturn(building);
+
         when(itemRepository.save(any(Item.class))).thenReturn(item);
         when(itemPostRepository.save(any(ItemPost.class))).thenReturn(itemPost);
 
@@ -97,13 +99,15 @@ class ItemPostServiceTest {
         // then
         assertNotNull(result);
 
-        assertEquals(ItemStatus.REPORTED, item.getStatus());
+        ArgumentCaptor<Item> itemCaptor = ArgumentCaptor.forClass(Item.class);
 
-        // Repository Save 메서드 호출 검증
-        verify(itemRepository, times(1)).save(any(Item.class));
+        verify(itemRepository, times(1)).save(itemCaptor.capture());
+
+        Item savedItem = itemCaptor.getValue();
+        assertEquals(ItemStatus.REPORTED, savedItem.getStatus());
+
+        // 나머지 검증
         verify(itemPostRepository, times(1)).save(any(ItemPost.class));
-
-        // ApplicationEventPublisher를 통해 ItemCreatedEvent가 잘 발행되었는지 검증
         verify(eventPublisher, times(1)).publishEvent(any(ItemCreatedEvent.class));
     }
 
