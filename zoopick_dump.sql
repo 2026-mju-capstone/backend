@@ -772,7 +772,8 @@ ALTER SEQUENCE zoopick.locker_commands_id_seq OWNED BY zoopick.locker_commands.i
 CREATE TABLE zoopick.lockers (
     id bigint NOT NULL,
     status zoopick.locker_status DEFAULT 'EMPTY'::zoopick.locker_status NOT NULL,
-    current_item_id bigint
+    current_item_id bigint,
+    pending_item_id bigint
 );
 
 
@@ -1231,8 +1232,8 @@ COPY zoopick.locker_commands (id, locker_id, command, status, issued_by, created
 -- Data for Name: lockers; Type: TABLE DATA; Schema: zoopick; Owner: postgres
 --
 
-COPY zoopick.lockers (id, status, current_item_id) FROM stdin;
-1	EMPTY	\N
+COPY zoopick.lockers (id, status, current_item_id, pending_item_id) FROM stdin;
+1	EMPTY	\N	\N
 \.
 
 
@@ -1551,6 +1552,14 @@ ALTER TABLE ONLY zoopick.locker_commands
 
 ALTER TABLE ONLY zoopick.lockers
     ADD CONSTRAINT lockers_current_item_id_key UNIQUE (current_item_id);
+
+
+--
+-- Name: lockers lockers_pending_item_id_key; Type: CONSTRAINT; Schema: zoopick; Owner: postgres
+--
+
+ALTER TABLE ONLY zoopick.lockers
+    ADD CONSTRAINT lockers_pending_item_id_key UNIQUE (pending_item_id);
 
 
 --
@@ -1960,6 +1969,14 @@ ALTER TABLE ONLY zoopick.items
 
 ALTER TABLE ONLY zoopick.lockers
     ADD CONSTRAINT fk_lockers_item FOREIGN KEY (current_item_id) REFERENCES zoopick.items(id) ON DELETE SET NULL;
+
+
+--
+-- Name: lockers fk_lockers_pending_item; Type: FK CONSTRAINT; Schema: zoopick; Owner: postgres
+--
+
+ALTER TABLE ONLY zoopick.lockers
+    ADD CONSTRAINT fk_lockers_pending_item FOREIGN KEY (pending_item_id) REFERENCES zoopick.items(id) ON DELETE SET NULL;
 
 
 --

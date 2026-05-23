@@ -10,6 +10,7 @@ import com.zoopick.server.item.entity.Item;
 import com.zoopick.server.item.entity.ItemStatus;
 import com.zoopick.server.item.entity.ItemType;
 import com.zoopick.server.item.repository.ItemRepository;
+import com.zoopick.server.item.service.ItemService;
 import com.zoopick.server.itemmatch.entity.MatchStatus;
 import com.zoopick.server.itemmatch.repository.ItemMatchRepository;
 import com.zoopick.server.locker.entity.*;
@@ -29,6 +30,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doAnswer;
 
 @ExtendWith(MockitoExtension.class)
 class LockerServiceTest {
@@ -41,9 +43,8 @@ class LockerServiceTest {
     @Mock private ItemRepository itemRepository;
     @Mock private UserRepository userRepository;
     @Mock private ItemMatchRepository itemMatchRepository;
-
-    // 💡 NullPointerException 해결을 위해 추가된 의존성 Mocking
     @Mock private ChatRoomRepository chatRoomRepository;
+    @Mock private ItemService itemService;
 
     private User mockUser;
     private User otherUser;
@@ -98,10 +99,11 @@ class LockerServiceTest {
         // when (파라미터: userId, lockerId, itemId)
         LockerCommand command = lockerService.requestUnlock(MOCK_USER_ID, 1L, 200L);
 
-        // then
-        assertEquals(LockerStatus.IN_USE, emptyLocker.getStatus());
-        assertEquals(validItem, emptyLocker.getCurrentItem());
-        assertEquals(ItemStatus.IN_LOCKER, validItem.getStatus());
+        // then - unlock 시점에는 상태 변경 없이 pendingItem만 설정됨
+        assertEquals(LockerStatus.EMPTY, emptyLocker.getStatus());
+        assertNull(emptyLocker.getCurrentItem());
+        assertEquals(validItem, emptyLocker.getPendingItem());
+        assertEquals(ItemStatus.REPORTED, validItem.getStatus());
 
         assertEquals(LockerCommandType.OPEN, command.getCommand());
         assertEquals(mockUser, command.getIssuedBy());
@@ -142,10 +144,10 @@ class LockerServiceTest {
         // given
         when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
         when(lockerRepository.findById(2L)).thenReturn(Optional.of(fullLocker));
-
         when(chatRoomRepository.existsByItemAndOwnerIdAndStatus(storedItem, MOCK_USER_ID, ChatRoomStatus.RESOLVED_RETURNED))
                 .thenReturn(true);
-
+        doAnswer(inv -> { storedItem.changeStatus(ItemStatus.RETURNED); return null; })
+                .when(itemService).changeItemStatus(storedItem.getId(), ItemStatus.RETURNED);
         when(commandRepository.save(any(LockerCommand.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
@@ -160,21 +162,22 @@ class LockerServiceTest {
         assertEquals(LockerCommandType.OPEN, command.getCommand());
         verify(commandRepository, times(1)).save(any(LockerCommand.class));
     }
+
     @Test
     @DisplayName("사물함 열기 요청 - 회수 (매칭이 확정된 물품 소유자)")
     void requestUnlock_Retrieval_Success_ByMatchedOwner() {
         // given
-        storedItem.setReporter(otherUser); // 물건을 넣은 사람은 otherUser
+        storedItem.setReporter(otherUser);
         when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
         when(lockerRepository.findById(2L)).thenReturn(Optional.of(fullLocker));
-
-        // 권한 체크 모킹: mockUser가 해당 물품과 CONFIRMED 상태로 매칭됨
         when(itemMatchRepository.existsByFoundItemAndLostItem_Reporter_IdAndStatus(storedItem, MOCK_USER_ID, MatchStatus.CONFIRMED))
                 .thenReturn(true);
+        doAnswer(inv -> { storedItem.changeStatus(ItemStatus.RETURNED); return null; })
+                .when(itemService).changeItemStatus(storedItem.getId(), ItemStatus.RETURNED);
         when(commandRepository.save(any(LockerCommand.class))).thenAnswer(i -> i.getArgument(0));
 
         // when
-        LockerCommand command = lockerService.requestUnlock(MOCK_USER_ID, 2L, null);
+        lockerService.requestUnlock(MOCK_USER_ID, 2L, null);
 
         // then
         assertEquals(LockerStatus.EMPTY, fullLocker.getStatus());
@@ -235,6 +238,34 @@ class LockerServiceTest {
         // then
         assertEquals(LockerCommandType.CLOSE, command.getCommand());
         verify(commandRepository, times(1)).save(any(LockerCommand.class));
+    }
+
+    @Test
+    @DisplayName("사물함 닫기 요청 - 보관 완료 (lock 시점에 상태 변경)")
+    void requestLock_Success_Storage() {
+        // given
+        emptyLocker.setPendingItem(validItem);
+
+        when(userRepository.findById(MOCK_USER_ID)).thenReturn(Optional.of(mockUser));
+        when(lockerRepository.findById(1L)).thenReturn(Optional.of(emptyLocker));
+
+        LockerCommand lastOpenCmd = LockerCommand.builder()
+                .issuedBy(mockUser)
+                .command(LockerCommandType.OPEN)
+                .build();
+        when(commandRepository.findFirstByLocker_IdAndCommandOrderByCreatedAtDesc(1L, LockerCommandType.OPEN))
+                .thenReturn(Optional.of(lastOpenCmd));
+        when(commandRepository.save(any(LockerCommand.class))).thenAnswer(i -> i.getArgument(0));
+
+        // when
+        LockerCommand command = lockerService.requestLock(MOCK_USER_ID, 1L);
+
+        // then - lock 시점에 비로소 상태가 확정됨
+        assertEquals(LockerCommandType.CLOSE, command.getCommand());
+        assertEquals(LockerStatus.IN_USE, emptyLocker.getStatus());
+        assertEquals(validItem, emptyLocker.getCurrentItem());
+        assertNull(emptyLocker.getPendingItem());
+        assertEquals(ItemStatus.IN_LOCKER, validItem.getStatus());
     }
 
     @Test

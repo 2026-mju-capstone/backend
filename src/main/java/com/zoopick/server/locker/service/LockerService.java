@@ -90,11 +90,9 @@ public class LockerService {
                     "Item " + itemId + " status is " + item.getStatus());
         }
 
-        locker.setStatus(LockerStatus.IN_USE);
-        locker.setCurrentItem(item);
-        itemService.changeItemStatus(item.getId(), ItemStatus.IN_LOCKER);
+        locker.setPendingItem(item);
 
-        log.info("[STORE] locker_id={} item_id={} user_id={} 보관 요청",
+        log.info("[STORE] locker_id={} item_id={} user_id={} 보관 대기 (잠금 후 확정)",
                 locker.getId(), itemId, userId);
     }
 
@@ -136,6 +134,15 @@ public class LockerService {
                                 "User " + userId + " is not the issuer of the last OPEN command");
                     }
                 });
+
+        Item pendingItem = locker.getPendingItem();
+        if (pendingItem != null) {
+            locker.setStatus(LockerStatus.IN_USE);
+            locker.setCurrentItem(pendingItem);
+            pendingItem.changeStatus(ItemStatus.IN_LOCKER);
+            locker.setPendingItem(null);
+            log.info("[LOCK-STORE] locker_id={} item_id={} 보관 완료", lockerId, pendingItem.getId());
+        }
 
         log.info("[CLOSE] locker_id={} user_id={} 잠금 요청", lockerId, userId);
         return enqueue(user, locker, LockerCommandType.CLOSE);
