@@ -649,10 +649,10 @@ ALTER SEQUENCE zoopick.item_matches_id_seq OWNED BY zoopick.item_matches.id;
 
 CREATE TABLE zoopick.item_posts (
                                     id bigint NOT NULL,
-                                    title character varying(512),
+                                    title character varying(512) NOT NULL,
                                     description character varying(512),
-                                    item_id bigint,
-                                    user_id bigint,
+                                    item_id bigint NOT NULL,
+                                    user_id bigint NOT NULL,
                                     created_at timestamp without time zone DEFAULT now() NOT NULL
 );
 
