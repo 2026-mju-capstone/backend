@@ -51,7 +51,7 @@ public class LockerService {
                     "Locker " + lockerId + " is under maintenance");
         }
 
-        boolean isStorage = (locker.getCurrentItem() == null);
+        boolean isStorage = (locker.getCurrentItem() == null && locker.getPendingItem() == null); //보관 진행 중인 사물함에 다른 사용자가 덮어쓰는 버그 고침
 
         if (isStorage) {
             handleStorage(userId, locker, itemId);
