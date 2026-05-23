@@ -234,7 +234,8 @@ CREATE TYPE zoopick.notification_type AS ENUM (
     'ITEM_RETURNED',
     'ITEM_REPORTED',
     'THEFT_SUSPECTED',
-    'LOCKER_READY'
+    'LOCKER_READY',
+    'QR_SCANNED'
 );
 
 
